@@ -47,6 +47,14 @@ export const RARITY_TIERS = [
   },
 ];
 
+export const RARITY_DROP_WEIGHTS = {
+  common: 55,
+  uncommon: 27,
+  rare: 12,
+  epic: 5,
+  legendary: 1,
+};
+
 const BASE_GEAR = {
   [GEAR_WEAPON_TYPES.projectile]: {
     name: "Pulse Cannon",
