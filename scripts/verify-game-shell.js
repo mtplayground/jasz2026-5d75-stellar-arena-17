@@ -14,6 +14,7 @@ const files = [
   "src/client/main.js",
   "src/client/game/GameLoop.js",
   "src/client/game/data/enemyDefinitions.js",
+  "src/client/game/data/levelDefinitions.js",
   "src/client/game/data/weaponDefinitions.js",
   "src/client/game/entities/EnemyShip.js",
   "src/client/game/entities/PlayerJet.js",
@@ -21,6 +22,7 @@ const files = [
   "src/client/game/Renderer.js",
   "src/client/game/systems/CombatSystem.js",
   "src/client/game/systems/EnemySystem.js",
+  "src/client/game/systems/LevelSystem.js",
   "src/client/game/systems/WeaponSystem.js",
   "src/client/game/Viewport.js",
   "src/client/game/createGameShell.js",
@@ -58,6 +60,10 @@ if (!html.includes('id="collection-screen"')) {
 
 if (!html.includes('id="weapon-status"')) {
   throw new Error("Weapon status readout is missing from index.html");
+}
+
+if (!html.includes('id="level-status"') || !html.includes('id="wave-status"')) {
+  throw new Error("Level and wave status readouts are missing from index.html");
 }
 
 if (

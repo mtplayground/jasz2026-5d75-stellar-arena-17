@@ -1,6 +1,7 @@
 import { PlayerJet } from "./entities/PlayerJet.js";
 import { CombatSystem } from "./systems/CombatSystem.js";
 import { EnemySystem } from "./systems/EnemySystem.js";
+import { LevelSystem } from "./systems/LevelSystem.js";
 import { WeaponSystem } from "./systems/WeaponSystem.js";
 
 export class Renderer {
@@ -19,6 +20,7 @@ export class Renderer {
     this.starLayers = this.createStarLayers();
     this.player = new PlayerJet();
     this.enemies = new EnemySystem();
+    this.level = new LevelSystem();
     this.weapons = new WeaponSystem();
     this.combat = new CombatSystem();
     this.wasGameActive = false;
@@ -54,6 +56,7 @@ export class Renderer {
     if (gameActive && !this.wasGameActive) {
       this.player.resetCombatState(this.viewport.size);
       this.enemies.reset();
+      this.level.reset();
       this.weapons.reset();
       this.combat.reset();
     }
@@ -61,7 +64,8 @@ export class Renderer {
     this.player.update(dt, this.input.getFlightInput(), this.viewport.size);
 
     if (gameActive) {
-      if (!this.player.gameOver) {
+      if (!this.player.gameOver && !this.level.levelClear) {
+        this.level.update(dt, this.enemies, this.viewport.size);
         this.enemies.update(dt, this.player, this.viewport.size);
         this.weapons.update(dt, this.player, this.input.getWeaponInput(), this.viewport.size);
       }
@@ -72,15 +76,20 @@ export class Renderer {
         weapons: this.weapons,
         size: this.viewport.size,
       });
+      if (!this.player.gameOver) {
+        this.level.evaluateClear(this.enemies);
+      }
       this.wasGameActive = true;
     } else if (this.wasGameActive) {
       this.enemies.reset();
+      this.level.reset();
       this.weapons.reset();
       this.combat.reset();
       this.wasGameActive = false;
     }
 
     this.updateWeaponStatus();
+    this.updateLevelStatus();
     this.updateCombatStatus(gameActive);
   }
 
@@ -120,6 +129,8 @@ export class Renderer {
     if (this.hud.combatStatus) {
       if (this.player.gameOver) {
         this.hud.combatStatus.textContent = "Game Over";
+      } else if (this.level.levelClear) {
+        this.hud.combatStatus.textContent = "Level Clear";
       } else if (!gameActive) {
         this.hud.combatStatus.textContent = "Ready";
       } else if (this.player.invulnerability > 0) {
@@ -127,6 +138,22 @@ export class Renderer {
       } else {
         this.hud.combatStatus.textContent = "Engaged";
       }
+    }
+  }
+
+  updateLevelStatus() {
+    if (!this.hud.levelStatus && !this.hud.waveStatus) {
+      return;
+    }
+
+    const status = this.level.status;
+    if (this.hud.levelStatus) {
+      this.hud.levelStatus.textContent = status.levelLabel;
+    }
+
+    if (this.hud.waveStatus) {
+      const count = `${status.enemiesSpawned}/${status.enemiesTotal}`;
+      this.hud.waveStatus.textContent = `${status.waveLabel} ${status.waveNumber}/${status.totalWaves} ${count}`;
     }
   }
 

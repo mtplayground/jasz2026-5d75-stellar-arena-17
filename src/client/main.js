@@ -9,6 +9,8 @@ const shell = createGameShell({
   pauseToggle: document.querySelector("#pause-toggle"),
   pauseBanner: document.querySelector("#pause-banner"),
   weaponStatus: document.querySelector("#weapon-status"),
+  levelStatus: document.querySelector("#level-status"),
+  waveStatus: document.querySelector("#wave-status"),
   healthStatus: document.querySelector("#health-status"),
   livesStatus: document.querySelector("#lives-status"),
   combatStatus: document.querySelector("#combat-status"),

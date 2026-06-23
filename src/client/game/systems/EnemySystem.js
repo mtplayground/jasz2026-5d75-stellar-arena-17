@@ -8,7 +8,6 @@ export class EnemySystem {
   constructor() {
     this.enemies = [];
     this.projectiles = [];
-    this.spawnTimer = 0.45;
     this.spawnIndex = 0;
     this.totalSpawned = 0;
   }
@@ -16,19 +15,11 @@ export class EnemySystem {
   reset() {
     this.enemies = [];
     this.projectiles = [];
-    this.spawnTimer = 0.45;
     this.spawnIndex = 0;
     this.totalSpawned = 0;
   }
 
   update(dt, player, size) {
-    this.spawnTimer -= dt;
-
-    if (this.spawnTimer <= 0 && this.enemies.length < 7) {
-      this.spawnEnemy(size);
-      this.spawnTimer = Math.max(0.85, 1.8 - this.totalSpawned * 0.035);
-    }
-
     for (const enemy of this.enemies) {
       const shots = enemy.update(dt, player, size);
       this.projectiles.push(...shots);
@@ -38,9 +29,13 @@ export class EnemySystem {
     this.updateProjectiles(dt, size);
   }
 
-  spawnEnemy(size) {
-    const type = ENEMY_SPAWN_SEQUENCE[this.spawnIndex % ENEMY_SPAWN_SEQUENCE.length];
+  spawnEnemy(size, requestedType = null) {
+    const type = requestedType || ENEMY_SPAWN_SEQUENCE[this.spawnIndex % ENEMY_SPAWN_SEQUENCE.length];
     const definition = ENEMY_DEFINITIONS[type];
+    if (!definition) {
+      return;
+    }
+
     const pixelRatio = size.pixelRatio;
     const laneCount = 5;
     const lane = (this.spawnIndex * 2 + this.totalSpawned) % laneCount;
