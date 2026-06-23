@@ -8,6 +8,7 @@ const shell = createGameShell({
   loopState: document.querySelector("#loop-state"),
   pauseToggle: document.querySelector("#pause-toggle"),
   pauseBanner: document.querySelector("#pause-banner"),
+  weaponStatus: document.querySelector("#weapon-status"),
 });
 
 shell.start();

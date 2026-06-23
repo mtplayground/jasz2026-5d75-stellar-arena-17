@@ -1,7 +1,8 @@
 import { PlayerJet } from "./entities/PlayerJet.js";
+import { WeaponSystem } from "./systems/WeaponSystem.js";
 
 export class Renderer {
-  constructor(canvas, viewport, input) {
+  constructor(canvas, viewport, input, weaponStatus) {
     const context = canvas.getContext("2d", { alpha: false });
 
     if (!context) {
@@ -11,9 +12,11 @@ export class Renderer {
     this.canvas = canvas;
     this.viewport = viewport;
     this.input = input;
+    this.weaponStatus = weaponStatus;
     this.context = context;
     this.starLayers = this.createStarLayers();
     this.player = new PlayerJet();
+    this.weapons = new WeaponSystem();
   }
 
   createStarLayers() {
@@ -42,6 +45,8 @@ export class Renderer {
     }
 
     this.player.update(dt, this.input.getFlightInput(), this.viewport.size);
+    this.weapons.update(dt, this.player, this.input.getWeaponInput(), this.viewport.size);
+    this.updateWeaponStatus();
   }
 
   render(alpha) {
@@ -52,7 +57,18 @@ export class Renderer {
     this.drawBackground(ctx, width, height);
     this.drawStars(ctx);
     this.drawPointerReticle(ctx);
+    this.weapons.draw(ctx, this.viewport.size.pixelRatio);
     this.player.draw(ctx, alpha, this.viewport.size.pixelRatio);
+  }
+
+  updateWeaponStatus() {
+    if (!this.weaponStatus) {
+      return;
+    }
+
+    const status = this.weapons.status;
+    const charge = status.charge > 0 ? ` ${Math.round(status.charge * 100)}%` : "";
+    this.weaponStatus.textContent = `${status.label}${charge}`;
   }
 
   drawBackground(ctx, width, height) {

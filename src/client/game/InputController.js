@@ -9,6 +9,9 @@ export class InputController {
       x: 0,
       y: 0,
     };
+    this.fireHeld = false;
+    this.fireReleased = false;
+    this.pendingWeaponSelection = null;
   }
 
   bind() {
@@ -26,6 +29,19 @@ export class InputController {
         if (this.isMovementKey(event.code)) {
           this.keys.add(event.code);
           event.preventDefault();
+          return;
+        }
+
+        if (event.code === "Space") {
+          this.fireHeld = true;
+          event.preventDefault();
+          return;
+        }
+
+        const weaponSelection = this.weaponSelectionForKey(event.code);
+        if (weaponSelection) {
+          this.pendingWeaponSelection = weaponSelection;
+          event.preventDefault();
         }
       },
       { signal },
@@ -37,13 +53,39 @@ export class InputController {
         if (this.isMovementKey(event.code)) {
           this.keys.delete(event.code);
           event.preventDefault();
+          return;
+        }
+
+        if (event.code === "Space") {
+          this.fireHeld = false;
+          this.fireReleased = true;
+          event.preventDefault();
         }
       },
       { signal },
     );
 
     this.canvas.addEventListener("pointermove", (event) => this.updatePointer(event), { signal });
-    this.canvas.addEventListener("pointerdown", (event) => this.updatePointer(event), { signal });
+    this.canvas.addEventListener(
+      "pointerdown",
+      (event) => {
+        this.updatePointer(event);
+        if (event.button === 0) {
+          this.fireHeld = true;
+        }
+      },
+      { signal },
+    );
+    window.addEventListener(
+      "pointerup",
+      (event) => {
+        if (event.button === 0 && this.fireHeld) {
+          this.fireHeld = false;
+          this.fireReleased = true;
+        }
+      },
+      { signal },
+    );
     this.canvas.addEventListener(
       "pointerleave",
       () => {
@@ -57,6 +99,9 @@ export class InputController {
     this.abortController.abort();
     this.keys.clear();
     this.pointer.active = false;
+    this.fireHeld = false;
+    this.fireReleased = false;
+    this.pendingWeaponSelection = null;
   }
 
   isMovementKey(code) {
@@ -70,6 +115,14 @@ export class InputController {
       "KeyS",
       "KeyD",
     ].includes(code);
+  }
+
+  weaponSelectionForKey(code) {
+    return {
+      Digit1: "projectile",
+      Digit2: "missile",
+      Digit3: "laser",
+    }[code];
   }
 
   updatePointer(event) {
@@ -105,6 +158,31 @@ export class InputController {
     return {
       moveX,
       moveY,
+      pointer: this.pointer.active ? { x: this.pointer.x, y: this.pointer.y } : null,
+    };
+  }
+
+  getWeaponInput() {
+    const selectedWeapon = this.pendingWeaponSelection;
+    this.pendingWeaponSelection = null;
+
+    if (!this.isFlightEnabled()) {
+      this.fireReleased = false;
+      return {
+        fireHeld: false,
+        fireReleased: false,
+        selectedWeapon,
+        pointer: null,
+      };
+    }
+
+    const fireReleased = this.fireReleased;
+    this.fireReleased = false;
+
+    return {
+      fireHeld: this.fireHeld,
+      fireReleased,
+      selectedWeapon,
       pointer: this.pointer.active ? { x: this.pointer.x, y: this.pointer.y } : null,
     };
   }
