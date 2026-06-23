@@ -7,6 +7,7 @@ const files = [
   "server.js",
   "scripts/build.js",
   "scripts/migrate.js",
+  "src/shared/gearCatalog.js",
   "src/server/auth.js",
   "src/server/db.js",
   "src/client/appRouter.js",
@@ -41,6 +42,7 @@ for (const file of files) {
 
 const html = await readFile(resolve(projectRoot, "src/client/index.html"), "utf8");
 const css = await readFile(resolve(projectRoot, "src/client/styles.css"), "utf8");
+const gearCatalog = await readFile(resolve(projectRoot, "src/shared/gearCatalog.js"), "utf8");
 
 if (!html.includes('<canvas id="game-canvas"')) {
   throw new Error("Game canvas is missing from index.html");
@@ -84,6 +86,18 @@ if (
 
 if (!css.includes("width: 100vw") || !css.includes("height: 100vh")) {
   throw new Error("The app shell must cover the full browser viewport");
+}
+
+for (const rarity of ["common", "uncommon", "rare", "epic", "legendary"]) {
+  if (!gearCatalog.includes(`id: "${rarity}"`)) {
+    throw new Error(`Gear rarity ${rarity} is missing from gearCatalog.js`);
+  }
+}
+
+for (const weaponType of ["projectile", "missile", "laser"]) {
+  if (!gearCatalog.includes(`${weaponType}: "${weaponType}"`)) {
+    throw new Error(`Gear weapon type ${weaponType} is missing from gearCatalog.js`);
+  }
 }
 
 console.log("Game shell verification passed");

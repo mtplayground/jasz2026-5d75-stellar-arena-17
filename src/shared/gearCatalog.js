@@ -1,0 +1,129 @@
+export const GEAR_WEAPON_TYPES = {
+  projectile: "projectile",
+  missile: "missile",
+  laser: "laser",
+};
+
+export const RARITY_TIERS = [
+  {
+    id: "common",
+    label: "Common",
+    colorName: "White",
+    rank: 1,
+    color: "#f7f8fb",
+    multiplier: 1,
+  },
+  {
+    id: "uncommon",
+    label: "Uncommon",
+    colorName: "Green",
+    rank: 2,
+    color: "#38d985",
+    multiplier: 1.18,
+  },
+  {
+    id: "rare",
+    label: "Rare",
+    colorName: "Blue",
+    rank: 3,
+    color: "#4aa8ff",
+    multiplier: 1.38,
+  },
+  {
+    id: "epic",
+    label: "Epic",
+    colorName: "Purple",
+    rank: 4,
+    color: "#b47cff",
+    multiplier: 1.62,
+  },
+  {
+    id: "legendary",
+    label: "Legendary",
+    colorName: "Orange",
+    rank: 5,
+    color: "#ff9f3d",
+    multiplier: 1.95,
+  },
+];
+
+const BASE_GEAR = {
+  [GEAR_WEAPON_TYPES.projectile]: {
+    name: "Pulse Cannon",
+    stats: {
+      damage: 8,
+      fireRate: 8.5,
+      speed: 900,
+      radius: 3.5,
+    },
+  },
+  [GEAR_WEAPON_TYPES.missile]: {
+    name: "Seeker Pod",
+    stats: {
+      damage: 28,
+      fireRate: 1.35,
+      speed: 420,
+      turnRate: 5.8,
+      radius: 6,
+    },
+  },
+  [GEAR_WEAPON_TYPES.laser]: {
+    name: "Lance Emitter",
+    stats: {
+      damage: 42,
+      fireRate: 0.75,
+      chargeTime: 0.9,
+      beamDuration: 0.18,
+      range: 920,
+      width: 9,
+    },
+  },
+};
+
+function roundStat(value) {
+  return Number.isInteger(value) ? value : Number(value.toFixed(2));
+}
+
+function scaleStats(weaponType, baseStats, multiplier) {
+  const stats = {};
+
+  for (const [key, value] of Object.entries(baseStats)) {
+    if (key === "chargeTime") {
+      stats[key] = roundStat(value / (1 + (multiplier - 1) * 0.45));
+    } else if (key === "beamDuration") {
+      stats[key] = value;
+    } else {
+      stats[key] = roundStat(value * multiplier);
+    }
+  }
+
+  if (weaponType === GEAR_WEAPON_TYPES.projectile) {
+    stats.fireRate = roundStat(baseStats.fireRate * (1 + (multiplier - 1) * 0.55));
+  }
+
+  if (weaponType === GEAR_WEAPON_TYPES.missile) {
+    stats.turnRate = roundStat(baseStats.turnRate * (1 + (multiplier - 1) * 0.4));
+  }
+
+  return stats;
+}
+
+export const GEAR_DEFINITIONS = Object.values(GEAR_WEAPON_TYPES).flatMap((weaponType) => {
+  const base = BASE_GEAR[weaponType];
+
+  return RARITY_TIERS.map((rarity) => ({
+    id: `${weaponType}-${rarity.id}`,
+    name: `${rarity.label} ${base.name}`,
+    weaponType,
+    rarity: rarity.id,
+    rarityLabel: rarity.label,
+    rarityColorName: rarity.colorName,
+    rarityColor: rarity.color,
+    rarityRank: rarity.rank,
+    stats: scaleStats(weaponType, base.stats, rarity.multiplier),
+  }));
+});
+
+export function rarityById(rarityId) {
+  return RARITY_TIERS.find((rarity) => rarity.id === rarityId) || RARITY_TIERS[0];
+}
