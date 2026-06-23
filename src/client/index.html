@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="/styles.css">
   </head>
   <body>
-    <main class="app-shell" aria-label="Game shell">
+    <main class="app-shell" aria-label="Game shell" data-route="menu">
       <canvas id="game-canvas" aria-label="Game render surface"></canvas>
       <section class="hud" aria-live="polite">
         <div>
@@ -31,6 +31,32 @@
           <p id="auth-details">Session status is loading.</p>
         </div>
         <button id="auth-action" class="auth-button" type="button" disabled>Sign in</button>
+      </section>
+      <section class="screen-layer" aria-live="polite">
+        <section id="menu-screen" class="screen-panel menu-screen">
+          <span class="label">Home</span>
+          <h1 id="menu-heading">Player Menu</h1>
+          <p id="menu-subtitle">Checking account.</p>
+          <div class="menu-actions">
+            <button id="play-button" class="primary-action" type="button" disabled>Play</button>
+            <button id="collection-button" class="secondary-action" type="button" disabled>Collection</button>
+          </div>
+        </section>
+
+        <section id="collection-screen" class="screen-panel collection-screen" hidden>
+          <span class="label">Inventory</span>
+          <h1 id="collection-owner">Collection</h1>
+          <div class="empty-inventory">No gear</div>
+          <button class="secondary-action" type="button" data-nav-route="menu">Back</button>
+        </section>
+
+        <section id="game-screen" class="game-screen" hidden>
+          <div>
+            <span class="label">Level 1</span>
+            <strong id="game-pilot">Player</strong>
+          </div>
+          <button class="secondary-action compact-action" type="button" data-nav-route="menu">Menu</button>
+        </section>
       </section>
       <div id="pause-banner" class="pause-banner" hidden>Paused</div>
     </main>

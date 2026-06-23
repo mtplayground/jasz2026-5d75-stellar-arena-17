@@ -1,4 +1,4 @@
-export function initAuthPanel({ panel, status, details, action, avatar }) {
+export function initAuthPanel({ panel, status, details, action, avatar, onSessionChange = () => {} }) {
   if (!panel || !status || !details || !action || !avatar) {
     throw new Error("Auth panel could not find all required DOM elements");
   }
@@ -11,6 +11,7 @@ export function initAuthPanel({ panel, status, details, action, avatar }) {
     action.disabled = true;
     avatar.hidden = true;
     avatar.removeAttribute("src");
+    onSessionChange({ status: "loading", player: null, loginUrl: null });
   };
 
   const setLoggedOut = (loginUrl) => {
@@ -24,9 +25,10 @@ export function initAuthPanel({ panel, status, details, action, avatar }) {
     };
     avatar.hidden = true;
     avatar.removeAttribute("src");
+    onSessionChange({ status: "signed-out", player: null, loginUrl });
   };
 
-  const setLoggedIn = ({ player, message }) => {
+  const setLoggedIn = ({ player, message, isNew }) => {
     panel.dataset.state = "signed-in";
     const displayName = player.name || player.email;
     status.textContent = displayName;
@@ -43,6 +45,8 @@ export function initAuthPanel({ panel, status, details, action, avatar }) {
       avatar.hidden = true;
       avatar.removeAttribute("src");
     }
+
+    onSessionChange({ status: "signed-in", player, message, isNew });
   };
 
   const setError = () => {
@@ -54,6 +58,7 @@ export function initAuthPanel({ panel, status, details, action, avatar }) {
     action.onclick = () => refresh();
     avatar.hidden = true;
     avatar.removeAttribute("src");
+    onSessionChange({ status: "error", player: null, loginUrl: null });
   };
 
   const refresh = async () => {
