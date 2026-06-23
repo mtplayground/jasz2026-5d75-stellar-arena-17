@@ -1,3 +1,4 @@
+import { initAuthPanel } from "./authPanel.js";
 import { createGameShell } from "./game/createGameShell.js";
 
 const shell = createGameShell({
@@ -9,3 +10,11 @@ const shell = createGameShell({
 });
 
 shell.start();
+
+initAuthPanel({
+  panel: document.querySelector("#auth-panel"),
+  status: document.querySelector("#auth-status"),
+  details: document.querySelector("#auth-details"),
+  action: document.querySelector("#auth-action"),
+  avatar: document.querySelector("#auth-avatar"),
+});

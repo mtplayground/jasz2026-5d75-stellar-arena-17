@@ -6,6 +6,10 @@ const projectRoot = resolve(import.meta.dirname, "..");
 const files = [
   "server.js",
   "scripts/build.js",
+  "scripts/migrate.js",
+  "src/server/auth.js",
+  "src/server/db.js",
+  "src/client/authPanel.js",
   "src/client/main.js",
   "src/client/game/GameLoop.js",
   "src/client/game/InputController.js",
@@ -30,6 +34,10 @@ const css = await readFile(resolve(projectRoot, "src/client/styles.css"), "utf8"
 
 if (!html.includes('<canvas id="game-canvas"')) {
   throw new Error("Game canvas is missing from index.html");
+}
+
+if (!html.includes('id="auth-panel"')) {
+  throw new Error("Player account panel is missing from index.html");
 }
 
 if (!css.includes("width: 100vw") || !css.includes("height: 100vh")) {
