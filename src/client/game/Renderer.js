@@ -1,4 +1,5 @@
 import { PlayerJet } from "./entities/PlayerJet.js";
+import { EnemySystem } from "./systems/EnemySystem.js";
 import { WeaponSystem } from "./systems/WeaponSystem.js";
 
 export class Renderer {
@@ -16,7 +17,9 @@ export class Renderer {
     this.context = context;
     this.starLayers = this.createStarLayers();
     this.player = new PlayerJet();
+    this.enemies = new EnemySystem();
     this.weapons = new WeaponSystem();
+    this.wasGameActive = false;
   }
 
   createStarLayers() {
@@ -44,7 +47,17 @@ export class Renderer {
       }
     }
 
+    const gameActive = this.input.isFlightEnabled();
     this.player.update(dt, this.input.getFlightInput(), this.viewport.size);
+
+    if (gameActive) {
+      this.enemies.update(dt, this.player, this.viewport.size);
+      this.wasGameActive = true;
+    } else if (this.wasGameActive) {
+      this.enemies.reset();
+      this.wasGameActive = false;
+    }
+
     this.weapons.update(dt, this.player, this.input.getWeaponInput(), this.viewport.size);
     this.updateWeaponStatus();
   }
@@ -57,6 +70,7 @@ export class Renderer {
     this.drawBackground(ctx, width, height);
     this.drawStars(ctx);
     this.drawPointerReticle(ctx);
+    this.enemies.draw(ctx, alpha, this.viewport.size.pixelRatio);
     this.weapons.draw(ctx, this.viewport.size.pixelRatio);
     this.player.draw(ctx, alpha, this.viewport.size.pixelRatio);
   }
