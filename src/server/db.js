@@ -1,4 +1,5 @@
 import pg from "pg";
+import { GEAR_DEFINITIONS } from "../shared/gearCatalog.js";
 
 const { Pool } = pg;
 
@@ -41,6 +42,45 @@ export async function ensureSchema(db = getPool()) {
     ALTER TABLE players
     ADD COLUMN IF NOT EXISTS highest_cleared_level INTEGER NOT NULL DEFAULT 0
   `);
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS gear_definitions (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      weapon_type TEXT NOT NULL CHECK (weapon_type IN ('projectile', 'missile', 'laser')),
+      rarity TEXT NOT NULL CHECK (rarity IN ('common', 'uncommon', 'rare', 'epic', 'legendary')),
+      rarity_label TEXT NOT NULL,
+      rarity_color_name TEXT NOT NULL,
+      rarity_color TEXT NOT NULL,
+      rarity_rank INTEGER NOT NULL CHECK (rarity_rank BETWEEN 1 AND 5),
+      stats JSONB NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS player_gear (
+      id BIGSERIAL PRIMARY KEY,
+      player_sub TEXT NOT NULL REFERENCES players(sub) ON DELETE CASCADE,
+      gear_definition_id TEXT NOT NULL REFERENCES gear_definitions(id),
+      item_level INTEGER NOT NULL DEFAULT 1 CHECK (item_level >= 1),
+      equipped BOOLEAN NOT NULL DEFAULT FALSE,
+      acquired_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS player_gear_player_sub_idx
+    ON player_gear (player_sub)
+  `);
+
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS player_gear_definition_idx
+    ON player_gear (gear_definition_id)
+  `);
+
+  await seedGearDefinitions(db);
 }
 
 export async function upsertPlayerFromClaims(claims, db = getPool()) {
@@ -108,4 +148,104 @@ export async function saveClearedLevelForClaims(claims, clearedLevel, db = getPo
   );
 
   return result.rows[0];
+}
+
+export async function seedGearDefinitions(db = getPool()) {
+  if (!db) {
+    throw new Error("DATABASE_URL is not configured");
+  }
+
+  for (const gear of GEAR_DEFINITIONS) {
+    await db.query(
+      `
+        INSERT INTO gear_definitions (
+          id,
+          name,
+          weapon_type,
+          rarity,
+          rarity_label,
+          rarity_color_name,
+          rarity_color,
+          rarity_rank,
+          stats
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb)
+        ON CONFLICT (id) DO UPDATE
+        SET
+          name = EXCLUDED.name,
+          weapon_type = EXCLUDED.weapon_type,
+          rarity = EXCLUDED.rarity,
+          rarity_label = EXCLUDED.rarity_label,
+          rarity_color_name = EXCLUDED.rarity_color_name,
+          rarity_color = EXCLUDED.rarity_color,
+          rarity_rank = EXCLUDED.rarity_rank,
+          stats = EXCLUDED.stats,
+          updated_at = NOW()
+      `,
+      [
+        gear.id,
+        gear.name,
+        gear.weaponType,
+        gear.rarity,
+        gear.rarityLabel,
+        gear.rarityColorName,
+        gear.rarityColor,
+        gear.rarityRank,
+        JSON.stringify(gear.stats),
+      ],
+    );
+  }
+}
+
+export async function listGearForPlayer(claims, db = getPool()) {
+  if (!db) {
+    throw new Error("DATABASE_URL is not configured");
+  }
+
+  const player = await upsertPlayerFromClaims(claims, db);
+  const definitions = await db.query(
+    `
+      SELECT
+        id,
+        name,
+        weapon_type AS "weaponType",
+        rarity,
+        rarity_label AS "rarityLabel",
+        rarity_color_name AS "rarityColorName",
+        rarity_color AS "rarityColor",
+        rarity_rank AS "rarityRank",
+        stats
+      FROM gear_definitions
+      ORDER BY rarity_rank, weapon_type, id
+    `,
+  );
+  const ownedGear = await db.query(
+    `
+      SELECT
+        pg.id,
+        pg.player_sub AS "playerSub",
+        pg.gear_definition_id AS "gearDefinitionId",
+        pg.item_level AS "itemLevel",
+        pg.equipped,
+        pg.acquired_at AS "acquiredAt",
+        gd.name,
+        gd.weapon_type AS "weaponType",
+        gd.rarity,
+        gd.rarity_label AS "rarityLabel",
+        gd.rarity_color_name AS "rarityColorName",
+        gd.rarity_color AS "rarityColor",
+        gd.rarity_rank AS "rarityRank",
+        gd.stats
+      FROM player_gear pg
+      JOIN gear_definitions gd ON gd.id = pg.gear_definition_id
+      WHERE pg.player_sub = $1
+      ORDER BY pg.acquired_at DESC, pg.id DESC
+    `,
+    [player.sub],
+  );
+
+  return {
+    definitions: definitions.rows,
+    ownedGear: ownedGear.rows,
+  };
 }

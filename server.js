@@ -5,6 +5,7 @@ import { buildLoginUrl, verifySession } from "./src/server/auth.js";
 import {
   ensureSchema,
   getPool,
+  listGearForPlayer,
   saveClearedLevelForClaims,
   upsertPlayerFromClaims,
 } from "./src/server/db.js";
@@ -98,6 +99,10 @@ async function handleAuth(req, res, pathname) {
 }
 
 async function handleApi(req, res, pathname) {
+  if (pathname === "/api/gear") {
+    return handleGear(req, res);
+  }
+
   if (pathname === "/api/player/progress") {
     return handlePlayerProgress(req, res);
   }
@@ -226,6 +231,46 @@ async function handlePlayerProgress(req, res) {
       authenticated: true,
       error: "player_progress_unavailable",
       message: "Player progress could not be saved.",
+    });
+  }
+
+  return true;
+}
+
+async function handleGear(req, res) {
+  if (req.method !== "GET") {
+    writeJson(res, 405, { error: "method_not_allowed" });
+    return true;
+  }
+
+  const claims = await verifySession(req);
+  const loginUrl = buildLoginUrl(req);
+
+  if (!claims) {
+    writeJson(res, 401, {
+      authenticated: false,
+      loginUrl,
+    });
+    return true;
+  }
+
+  try {
+    const gear = await listGearForPlayer(claims);
+    writeJson(res, 200, {
+      authenticated: true,
+      definitions: gear.definitions,
+      ownedGear: gear.ownedGear,
+    });
+  } catch (err) {
+    console.error("Gear fetch failed", {
+      name: err.name,
+      message: err.message,
+      stack: err.stack,
+    });
+    writeJson(res, 503, {
+      authenticated: true,
+      error: "gear_unavailable",
+      message: "Gear data is temporarily unavailable.",
     });
   }
 
