@@ -1,5 +1,7 @@
+import { PlayerJet } from "./entities/PlayerJet.js";
+
 export class Renderer {
-  constructor(canvas, viewport) {
+  constructor(canvas, viewport, input) {
     const context = canvas.getContext("2d", { alpha: false });
 
     if (!context) {
@@ -8,8 +10,10 @@ export class Renderer {
 
     this.canvas = canvas;
     this.viewport = viewport;
+    this.input = input;
     this.context = context;
     this.starLayers = this.createStarLayers();
+    this.player = new PlayerJet();
   }
 
   createStarLayers() {
@@ -36,6 +40,8 @@ export class Renderer {
         star.x = (star.x + width * 0.37 + star.speed * 3) % width;
       }
     }
+
+    this.player.update(dt, this.input.getFlightInput(), this.viewport.size);
   }
 
   render(alpha) {
@@ -45,7 +51,8 @@ export class Renderer {
     ctx.clearRect(0, 0, width, height);
     this.drawBackground(ctx, width, height);
     this.drawStars(ctx);
-    this.drawCenterMarker(ctx, width, height, alpha);
+    this.drawPointerReticle(ctx);
+    this.player.draw(ctx, alpha, this.viewport.size.pixelRatio);
   }
 
   drawBackground(ctx, width, height) {
@@ -84,37 +91,29 @@ export class Renderer {
     }
   }
 
-  drawCenterMarker(ctx, width, height, alpha) {
-    const centerX = width / 2;
-    const centerY = height * 0.62;
-    const pulse = 0.5 + alpha * 0.5;
+  drawPointerReticle(ctx) {
+    const pointer = this.input.getFlightInput().pointer;
+    if (!pointer) {
+      return;
+    }
 
+    const radius = 10 * this.viewport.size.pixelRatio;
     ctx.save();
-    ctx.translate(centerX, centerY);
-
-    ctx.fillStyle = "rgba(217, 244, 95, 0.18)";
+    ctx.strokeStyle = "rgba(114, 216, 255, 0.48)";
+    ctx.lineWidth = 1.5 * this.viewport.size.pixelRatio;
     ctx.beginPath();
-    ctx.ellipse(0, 34, 46 + pulse * 4, 13 + pulse * 2, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.fillStyle = "#d9f45f";
+    ctx.arc(pointer.x, pointer.y, radius, 0, Math.PI * 2);
+    ctx.stroke();
     ctx.beginPath();
-    ctx.moveTo(0, -44);
-    ctx.lineTo(24, 30);
-    ctx.lineTo(0, 18);
-    ctx.lineTo(-24, 30);
-    ctx.closePath();
-    ctx.fill();
-
-    ctx.fillStyle = "#72d8ff";
-    ctx.beginPath();
-    ctx.moveTo(0, -26);
-    ctx.lineTo(9, 10);
-    ctx.lineTo(0, 5);
-    ctx.lineTo(-9, 10);
-    ctx.closePath();
-    ctx.fill();
-
+    ctx.moveTo(pointer.x - radius * 1.6, pointer.y);
+    ctx.lineTo(pointer.x - radius * 0.65, pointer.y);
+    ctx.moveTo(pointer.x + radius * 0.65, pointer.y);
+    ctx.lineTo(pointer.x + radius * 1.6, pointer.y);
+    ctx.moveTo(pointer.x, pointer.y - radius * 1.6);
+    ctx.lineTo(pointer.x, pointer.y - radius * 0.65);
+    ctx.moveTo(pointer.x, pointer.y + radius * 0.65);
+    ctx.lineTo(pointer.x, pointer.y + radius * 1.6);
+    ctx.stroke();
     ctx.restore();
   }
 }

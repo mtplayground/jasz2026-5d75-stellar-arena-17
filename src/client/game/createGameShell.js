@@ -19,12 +19,19 @@ export function createGameShell({ canvas, screenSize, loopState, pauseToggle, pa
     pauseBanner.hidden = !paused;
   };
 
+  const input = new InputController({
+    canvas,
+    onPauseToggle: () => {
+      pausedByUser = !pausedByUser;
+      applyPauseState();
+    },
+  });
   const viewport = new Viewport(canvas, (size) => {
     screenSize.textContent = `${Math.round(size.width / size.pixelRatio)} x ${Math.round(
       size.height / size.pixelRatio,
     )}`;
   });
-  const renderer = new Renderer(canvas, viewport);
+  const renderer = new Renderer(canvas, viewport, input);
   const loop = new GameLoop({
     update: (dt) => renderer.update(dt),
     render: (alpha) => renderer.render(alpha),
@@ -35,13 +42,6 @@ export function createGameShell({ canvas, screenSize, loopState, pauseToggle, pa
     loop.setPaused(paused);
     setPausePresentation(paused);
   };
-
-  const input = new InputController({
-    onPauseToggle: () => {
-      pausedByUser = !pausedByUser;
-      applyPauseState();
-    },
-  });
 
   pauseToggle.addEventListener("click", () => {
     pausedByUser = !pausedByUser;
