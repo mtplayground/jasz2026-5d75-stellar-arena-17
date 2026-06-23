@@ -6,7 +6,7 @@ import {
   ensureSchema,
   getPool,
   listGearForPlayer,
-  saveClearedLevelForClaims,
+  recordLevelClearAndGrantDrop,
   upsertPlayerFromClaims,
 } from "./src/server/db.js";
 
@@ -207,19 +207,23 @@ async function handlePlayerProgress(req, res) {
   }
 
   try {
-    const player = await saveClearedLevelForClaims(claims, clearedLevel);
+    const reward = await recordLevelClearAndGrantDrop(claims, clearedLevel);
     writeJson(res, 200, {
       authenticated: true,
       player: {
-        sub: player.sub,
-        email: player.email,
-        name: player.name,
-        pictureUrl: player.pictureUrl,
-        highestClearedLevel: player.highestClearedLevel,
-        createdAt: player.createdAt,
-        lastSeenAt: player.lastSeenAt,
+        sub: reward.player.sub,
+        email: reward.player.email,
+        name: reward.player.name,
+        pictureUrl: reward.player.pictureUrl,
+        highestClearedLevel: reward.player.highestClearedLevel,
+        createdAt: reward.player.createdAt,
+        lastSeenAt: reward.player.lastSeenAt,
       },
-      message: `Level ${clearedLevel} clear recorded.`,
+      drop: reward.drop,
+      alreadyGranted: reward.alreadyGranted,
+      message: reward.alreadyGranted
+        ? `Level ${clearedLevel} reward already granted.`
+        : `Level ${clearedLevel} clear recorded.`,
     });
   } catch (err) {
     console.error("Player progress save failed", {

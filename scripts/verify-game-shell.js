@@ -92,6 +92,9 @@ for (const rarity of ["common", "uncommon", "rare", "epic", "legendary"]) {
   if (!gearCatalog.includes(`id: "${rarity}"`)) {
     throw new Error(`Gear rarity ${rarity} is missing from gearCatalog.js`);
   }
+  if (!gearCatalog.includes(`${rarity}:`)) {
+    throw new Error(`Gear drop weight ${rarity} is missing from gearCatalog.js`);
+  }
 }
 
 for (const weaponType of ["projectile", "missile", "laser"]) {

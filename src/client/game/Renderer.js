@@ -287,10 +287,14 @@ export class Renderer {
       this.hud.onProgressSaved?.(payload.player);
 
       const nextLevel = this.getNextPlayableLevelNumber();
+      const dropText = payload.drop
+        ? ` Drop: ${payload.drop.rarityColorName} ${payload.drop.name}.`
+        : "";
+      const grantText = payload.alreadyGranted ? " Reward already claimed." : dropText;
       const summary =
         clearedLevel >= MAX_LEVEL_NUMBER
-          ? `Highest cleared level: ${payload.player.highestClearedLevel}.`
-          : `Highest cleared level: ${payload.player.highestClearedLevel}. Next: Level ${nextLevel}.`;
+          ? `Highest cleared level: ${payload.player.highestClearedLevel}.${grantText}`
+          : `Highest cleared level: ${payload.player.highestClearedLevel}. Next: Level ${nextLevel}.${grantText}`;
       if (this.hud.resultSummary) {
         this.hud.resultSummary.textContent = summary;
       }
