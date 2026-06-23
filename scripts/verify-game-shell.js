@@ -13,9 +13,11 @@ const files = [
   "src/client/authPanel.js",
   "src/client/main.js",
   "src/client/game/GameLoop.js",
+  "src/client/game/data/weaponDefinitions.js",
   "src/client/game/entities/PlayerJet.js",
   "src/client/game/InputController.js",
   "src/client/game/Renderer.js",
+  "src/client/game/systems/WeaponSystem.js",
   "src/client/game/Viewport.js",
   "src/client/game/createGameShell.js",
 ];
@@ -48,6 +50,10 @@ if (!html.includes('id="menu-screen"') || !html.includes('id="play-button"')) {
 
 if (!html.includes('id="collection-screen"')) {
   throw new Error("Collection entry screen is missing from index.html");
+}
+
+if (!html.includes('id="weapon-status"')) {
+  throw new Error("Weapon status readout is missing from index.html");
 }
 
 if (!css.includes("width: 100vw") || !css.includes("height: 100vh")) {

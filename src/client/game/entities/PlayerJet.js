@@ -186,4 +186,20 @@ export class PlayerJet {
 
     ctx.restore();
   }
+
+  getForwardVector() {
+    return {
+      x: Math.sin(this.angle),
+      y: -Math.cos(this.angle),
+    };
+  }
+
+  getWeaponMount(pixelRatio) {
+    const forward = this.getForwardVector();
+    const offset = 40 * pixelRatio;
+    return {
+      x: this.position.x + forward.x * offset,
+      y: this.position.y + forward.y * offset,
+    };
+  }
 }

@@ -3,7 +3,14 @@ import { InputController } from "./InputController.js";
 import { Renderer } from "./Renderer.js";
 import { Viewport } from "./Viewport.js";
 
-export function createGameShell({ canvas, screenSize, loopState, pauseToggle, pauseBanner }) {
+export function createGameShell({
+  canvas,
+  screenSize,
+  loopState,
+  pauseToggle,
+  pauseBanner,
+  weaponStatus,
+}) {
   if (!canvas || !screenSize || !loopState || !pauseToggle || !pauseBanner) {
     throw new Error("Game shell could not find all required DOM elements");
   }
@@ -31,7 +38,7 @@ export function createGameShell({ canvas, screenSize, loopState, pauseToggle, pa
       size.height / size.pixelRatio,
     )}`;
   });
-  const renderer = new Renderer(canvas, viewport, input);
+  const renderer = new Renderer(canvas, viewport, input, weaponStatus);
   const loop = new GameLoop({
     update: (dt) => renderer.update(dt),
     render: (alpha) => renderer.render(alpha),
