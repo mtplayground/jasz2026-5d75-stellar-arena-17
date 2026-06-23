@@ -13,6 +13,7 @@ const files = [
   "src/client/authPanel.js",
   "src/client/main.js",
   "src/client/game/GameLoop.js",
+  "src/client/game/entities/PlayerJet.js",
   "src/client/game/InputController.js",
   "src/client/game/Renderer.js",
   "src/client/game/Viewport.js",
