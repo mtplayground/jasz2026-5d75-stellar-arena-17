@@ -23,6 +23,15 @@
           <span aria-hidden="true">II</span>
         </button>
       </section>
+      <section id="auth-panel" class="auth-panel" aria-live="polite" data-state="loading">
+        <img id="auth-avatar" class="auth-avatar" alt="" hidden>
+        <div class="auth-copy">
+          <span class="label">Player Account</span>
+          <strong id="auth-status">Checking account</strong>
+          <p id="auth-details">Session status is loading.</p>
+        </div>
+        <button id="auth-action" class="auth-button" type="button" disabled>Sign in</button>
+      </section>
       <div id="pause-banner" class="pause-banner" hidden>Paused</div>
     </main>
     <script type="module" src="/main.js"></script>

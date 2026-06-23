@@ -1,0 +1,8 @@
+CREATE TABLE IF NOT EXISTS players (
+  sub TEXT PRIMARY KEY,
+  email TEXT NOT NULL,
+  name TEXT,
+  picture_url TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
