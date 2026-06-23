@@ -1,0 +1,119 @@
+:root {
+  color-scheme: dark;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  background: #070a12;
+  color: #f7f8fb;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  min-width: 320px;
+}
+
+.app-shell {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  min-height: 100svh;
+  overflow: hidden;
+  background: #070a12;
+}
+
+#game-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+.hud {
+  position: absolute;
+  inset: 16px 16px auto auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(7, 10, 18, 0.72);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.28);
+}
+
+.hud div {
+  display: grid;
+  gap: 2px;
+  min-width: 76px;
+}
+
+.label {
+  color: #aeb8c9;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.hud strong {
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.icon-button {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 6px;
+  background: #d9f45f;
+  color: #0d1220;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
+.icon-button:hover {
+  background: #f5ff96;
+}
+
+.icon-button:focus-visible {
+  outline: 3px solid #72d8ff;
+  outline-offset: 3px;
+}
+
+.pause-banner {
+  position: absolute;
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+  padding: 16px 24px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(7, 10, 18, 0.78);
+  color: #f7f8fb;
+  font-size: 1.4rem;
+  font-weight: 800;
+  backdrop-filter: blur(16px);
+}
+
+@media (max-width: 640px) {
+  .hud {
+    inset: 10px 10px auto 10px;
+    justify-content: space-between;
+  }
+
+  .hud div {
+    min-width: 0;
+  }
+}

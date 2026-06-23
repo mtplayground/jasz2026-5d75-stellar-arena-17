@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#070a12">
+    <title>Game Shell</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main class="app-shell" aria-label="Game shell">
+      <canvas id="game-canvas" aria-label="Game render surface"></canvas>
+      <section class="hud" aria-live="polite">
+        <div>
+          <span class="label">Screen</span>
+          <strong id="screen-size">0 x 0</strong>
+        </div>
+        <div>
+          <span class="label">Loop</span>
+          <strong id="loop-state">Starting</strong>
+        </div>
+        <button id="pause-toggle" class="icon-button" type="button" aria-pressed="false" aria-label="Pause game loop">
+          <span aria-hidden="true">II</span>
+        </button>
+      </section>
+      <div id="pause-banner" class="pause-banner" hidden>Paused</div>
+    </main>
+    <script type="module" src="/main.js"></script>
+  </body>
+</html>
