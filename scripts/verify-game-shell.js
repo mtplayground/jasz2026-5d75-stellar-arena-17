@@ -9,6 +9,7 @@ const files = [
   "scripts/migrate.js",
   "src/server/auth.js",
   "src/server/db.js",
+  "src/client/appRouter.js",
   "src/client/authPanel.js",
   "src/client/main.js",
   "src/client/game/GameLoop.js",
@@ -38,6 +39,14 @@ if (!html.includes('<canvas id="game-canvas"')) {
 
 if (!html.includes('id="auth-panel"')) {
   throw new Error("Player account panel is missing from index.html");
+}
+
+if (!html.includes('id="menu-screen"') || !html.includes('id="play-button"')) {
+  throw new Error("Main menu and Play flow controls are missing from index.html");
+}
+
+if (!html.includes('id="collection-screen"')) {
+  throw new Error("Collection entry screen is missing from index.html");
 }
 
 if (!css.includes("width: 100vw") || !css.includes("height: 100vh")) {
