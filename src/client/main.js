@@ -2,6 +2,8 @@ import { initAppRouter } from "./appRouter.js";
 import { initAuthPanel } from "./authPanel.js";
 import { createGameShell } from "./game/createGameShell.js";
 
+let router = null;
+
 const shell = createGameShell({
   canvas: document.querySelector("#game-canvas"),
   screenSize: document.querySelector("#screen-size"),
@@ -14,11 +16,18 @@ const shell = createGameShell({
   healthStatus: document.querySelector("#health-status"),
   livesStatus: document.querySelector("#lives-status"),
   combatStatus: document.querySelector("#combat-status"),
+  resultScreen: document.querySelector("#result-screen"),
+  resultLabel: document.querySelector("#result-label"),
+  resultTitle: document.querySelector("#result-title"),
+  resultSummary: document.querySelector("#result-summary"),
+  resultPrimary: document.querySelector("#result-primary"),
+  resultMenu: document.querySelector("#result-menu"),
+  onProgressSaved: (player) => router?.updatePlayer(player),
 });
 
 shell.start();
 
-const router = initAppRouter({
+router = initAppRouter({
   shell: document.querySelector(".app-shell"),
   menuScreen: document.querySelector("#menu-screen"),
   gameScreen: document.querySelector("#game-screen"),
@@ -38,5 +47,8 @@ initAuthPanel({
   details: document.querySelector("#auth-details"),
   action: document.querySelector("#auth-action"),
   avatar: document.querySelector("#auth-avatar"),
-  onSessionChange: (session) => router.updateSession(session),
+  onSessionChange: (session) => {
+    router.updateSession(session);
+    shell.setPlayerProgress(session.player);
+  },
 });

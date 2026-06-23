@@ -1,3 +1,5 @@
+import { getNextLevelNumber } from "./game/data/levelDefinitions.js";
+
 const ROUTES = new Set(["menu", "game", "collection"]);
 
 function readRoute() {
@@ -75,8 +77,14 @@ export function initAppRouter({
       menuHeading.textContent = "Player Menu";
       menuSubtitle.textContent = "Sign in to start a level.";
     } else {
+      const nextLevel = getNextLevelNumber(player.highestClearedLevel || 0);
       menuHeading.textContent = `Ready, ${displayName}`;
-      menuSubtitle.textContent = "Level 1 is ready.";
+      menuSubtitle.textContent = `Level ${nextLevel} is ready. Highest clear: ${player.highestClearedLevel || 0}.`;
+      playButton.textContent = `Play Level ${nextLevel}`;
+    }
+
+    if (!signedIn) {
+      playButton.textContent = "Play";
     }
 
     collectionOwner.textContent = signedIn ? `${displayName}'s Collection` : "Collection";
@@ -101,6 +109,12 @@ export function initAppRouter({
     updateSession(nextSession) {
       session = nextSession;
       render();
+    },
+    updatePlayer(player) {
+      if (session.player) {
+        session = { ...session, player };
+        render();
+      }
     },
     navigate,
   };

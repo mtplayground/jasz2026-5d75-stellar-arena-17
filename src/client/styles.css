@@ -246,6 +246,20 @@ body {
   white-space: nowrap;
 }
 
+.result-screen {
+  position: fixed;
+  inset: auto;
+  top: 50%;
+  left: 50%;
+  width: min(430px, calc(100vw - 32px));
+  transform: translate(-50%, -50%);
+}
+
+.app-shell[data-result-visible="true"] .screen-layer {
+  inset: 96px 16px 24px;
+  place-items: center;
+}
+
 .compact-action {
   min-width: 72px;
   min-height: 38px;

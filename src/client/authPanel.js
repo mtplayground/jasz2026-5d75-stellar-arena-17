@@ -31,8 +31,11 @@ export function initAuthPanel({ panel, status, details, action, avatar, onSessio
   const setLoggedIn = ({ player, message, isNew }) => {
     panel.dataset.state = "signed-in";
     const displayName = player.name || player.email;
+    const highestClear = player.highestClearedLevel || 0;
     status.textContent = displayName;
-    details.textContent = message || "Player account ready.";
+    details.textContent = message
+      ? `${message} Highest clear: Level ${highestClear}.`
+      : `Highest clear: Level ${highestClear}.`;
     action.textContent = "Refresh";
     action.disabled = false;
     action.onclick = () => refresh();
