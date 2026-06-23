@@ -1,0 +1,57 @@
+Architecture plan for issues #1-#16
+
+Product naming
+- The GitHub issue text does not define a standalone product brand/name, so implementation should use neutral game labels unless a later issue explicitly supplies copy.
+
+Project shape
+- Build a browser-based game with a full-window canvas render surface and a small backend for accounts, persistence, gear drops, and progression.
+- Keep client gameplay deterministic and state-driven: fixed timestep update, render interpolation where useful, responsive canvas scaling, and pause/resume handling.
+- Keep server-authoritative account, inventory, gear grants, and highest-level progress. The client may simulate combat locally, but level-complete reward grants must be validated through backend endpoints.
+
+Suggested file organization
+- `src/client/`
+  - `app`: top-level routes/screens and session bootstrap.
+  - `screens`: sign-in, main menu, game, results, loot reveal, collection, equip/loadout.
+  - `game`: loop, input, renderer, camera/viewport, assets, HUD.
+  - `game/systems`: movement, weapons, enemies, spawning/waves, collision, damage, effects, audio.
+  - `game/entities`: player, enemy, projectile, missile, laser, pickup/effects models.
+  - `api`: typed client calls for auth, progress, inventory, rewards, loadout.
+- `src/server/`
+  - `routes`: auth, player profile/progress, gear definitions, inventory, loadout, level-clear reward.
+  - `services`: password hashing/token handling, loot roll logic, progression validation.
+  - `db`: migrations/schema and query helpers.
+- `src/shared/`
+  - Types shared between client and server: player profile, auth response, level result, gear rarity, weapon type, gear definition, owned gear, loadout, level/wave definitions, combat stats.
+- `tests/`
+  - Unit tests for data tables and drop rates.
+  - Integration/API tests for auth, inventory grants, progress, and loadout persistence.
+  - End-to-end playthrough test for sign in -> play -> clear -> loot -> collection -> equip -> gameplay effect.
+
+Issue dependency map
+- #1 is the root for the game shell, canvas, game loop, and app structure.
+- #2 depends on #1 and unlocks authenticated player state and persistence.
+- #3 depends on #1/#2 and provides the menu, routing, and play entry point.
+- #4 depends on #1 and introduces player movement.
+- #5 and #6 depend on player/game primitives and introduce weapons and enemies.
+- #7 depends on movement, weapons, and enemies, then adds health, collision, damage, destruction, lives, game over, and HUD health.
+- #8 depends on enemies/combat systems and adds data-driven levels/waves and clear conditions.
+- #9 depends on menu/auth persistence and adds victory/defeat, level advancement, and highest-cleared tracking.
+- #10 depends on persistence and defines rarity tiers, gear definitions, owned gear, and stat ranges.
+- #11 depends on gear/progress and grants server-authoritative loot after level clear.
+- #12 depends on reward data and routing to show the loot reveal.
+- #13 depends on saved inventory and app routing to show grouped/sorted owned gear.
+- #14 depends on gear inventory and weapons to persist loadouts and apply equipped stats in combat.
+- #15 depends on mature combat/HUD flows and adds final sound, effects, feedback, and performance polish.
+- #16 depends on the complete loop and verifies the full player journey end to end.
+
+Key design decisions
+- Use shared typed contracts for every client/server boundary so later issues can add fields without duplicating shapes.
+- Store all durable player data on the server: player account, highest cleared level, inventory, owned gear, and equipped loadout.
+- Model gear definitions separately from owned gear instances. Definitions describe weapon type, rarity, and stat ranges; owned gear stores rolled stats and ownership.
+- Represent rarity as a fixed ordered enum: Common, Uncommon, Rare, Epic, Legendary, mapped to white, green, blue, purple, and orange presentation tokens.
+- Keep weapons data-driven from a `WeaponStats`/gear stat object so issue #5 can ship default weapons and issue #14 can swap in equipped gear without rewriting combat.
+- Keep level and wave configuration in data files or structured constants. Runtime systems should consume configs, not hard-code spawn sequences.
+- Keep render, simulation, input, and persistence concerns separated. Gameplay systems should not call backend APIs directly; screen/controller code should submit results and hydrate saved data.
+- Treat level-clear loot grants as server-authoritative. The client sends the level result, the server verifies allowed progression state, rolls the drop, persists it, and returns the granted item.
+- Add accessibility-minded UI structure outside the canvas for auth, menus, collection, equip, and results while keeping in-combat HUD readable over the render surface.
+- Plan test coverage in layers: focused unit tests for pure loot/gear/level logic, API tests for persistence, and one end-to-end test for the final integrated loop.
