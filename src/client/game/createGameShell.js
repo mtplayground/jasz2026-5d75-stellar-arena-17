@@ -10,6 +10,9 @@ export function createGameShell({
   pauseToggle,
   pauseBanner,
   weaponStatus,
+  healthStatus,
+  livesStatus,
+  combatStatus,
 }) {
   if (!canvas || !screenSize || !loopState || !pauseToggle || !pauseBanner) {
     throw new Error("Game shell could not find all required DOM elements");
@@ -38,7 +41,12 @@ export function createGameShell({
       size.height / size.pixelRatio,
     )}`;
   });
-  const renderer = new Renderer(canvas, viewport, input, weaponStatus);
+  const renderer = new Renderer(canvas, viewport, input, {
+    weaponStatus,
+    healthStatus,
+    livesStatus,
+    combatStatus,
+  });
   const loop = new GameLoop({
     update: (dt) => renderer.update(dt),
     render: (alpha) => renderer.render(alpha),

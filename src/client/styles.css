@@ -224,6 +224,7 @@ body {
 .game-screen {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
   padding: 10px 12px;
   border: 1px solid rgba(255, 255, 255, 0.16);
@@ -235,7 +236,7 @@ body {
 .game-screen div {
   display: grid;
   gap: 2px;
-  min-width: 120px;
+  min-width: 82px;
 }
 
 .game-screen strong {

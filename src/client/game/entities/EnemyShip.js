@@ -1,5 +1,7 @@
 import { ENEMY_TYPES } from "../data/enemyDefinitions.js";
 
+let nextEnemyId = 1;
+
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
@@ -23,6 +25,8 @@ function rotateVector(vector, radians) {
 
 export class EnemyShip {
   constructor({ definition, x, y, phase }) {
+    this.id = nextEnemyId;
+    nextEnemyId += 1;
     this.definition = definition;
     this.spawnX = x;
     this.position = { x, y };
@@ -30,6 +34,8 @@ export class EnemyShip {
     this.age = 0;
     this.phase = phase;
     this.fireTimer = definition.fireInterval * 0.55;
+    this.maxHealth = definition.health;
+    this.health = definition.health;
   }
 
   update(dt, player, size) {
@@ -97,6 +103,7 @@ export class EnemyShip {
         vy: direction.y * speed,
         radius: this.definition.projectileRadius * pixelRatio,
         color: this.definition.projectileColor,
+        damage: this.definition.projectileDamage,
         age: 0,
         lifetime: 3.2,
       });
@@ -114,6 +121,27 @@ export class EnemyShip {
     );
   }
 
+  applyDamage(amount) {
+    if (amount <= 0 || this.health <= 0) {
+      return false;
+    }
+
+    this.health = Math.max(0, this.health - amount);
+    return this.health <= 0;
+  }
+
+  isDestroyed() {
+    return this.health <= 0;
+  }
+
+  getCollisionCircle(pixelRatio) {
+    return {
+      x: this.position.x,
+      y: this.position.y,
+      radius: this.definition.radius * pixelRatio * 0.82,
+    };
+  }
+
   draw(ctx, alpha, pixelRatio) {
     const x = this.previousPosition.x + (this.position.x - this.previousPosition.x) * alpha;
     const y = this.previousPosition.y + (this.position.y - this.previousPosition.y) * alpha;
@@ -128,7 +156,25 @@ export class EnemyShip {
       this.drawScout(ctx, radius);
     }
 
+    this.drawHealthBar(ctx, radius);
+
     ctx.restore();
+  }
+
+  drawHealthBar(ctx, radius) {
+    if (this.health >= this.maxHealth) {
+      return;
+    }
+
+    const width = radius * 1.55;
+    const height = Math.max(3, radius * 0.12);
+    const y = -radius * 1.25;
+    const ratio = Math.max(0, this.health / this.maxHealth);
+
+    ctx.fillStyle = "rgba(7, 10, 18, 0.78)";
+    ctx.fillRect(-width / 2, y, width, height);
+    ctx.fillStyle = ratio > 0.45 ? "#d9f45f" : "#ff8a3d";
+    ctx.fillRect(-width / 2, y, width * ratio, height);
   }
 
   drawScout(ctx, radius) {

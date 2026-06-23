@@ -3,6 +3,9 @@ const BASE_ACCELERATION = 1180;
 const BASE_MAX_SPEED = 660;
 const BASE_DRAG = 5.4;
 const BASE_RADIUS = 28;
+const MAX_HEALTH = 100;
+const MAX_LIVES = 3;
+const RESPAWN_INVULNERABILITY_SECONDS = 1.4;
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -35,6 +38,11 @@ export class PlayerJet {
     this.angle = 0;
     this.previousAngle = 0;
     this.initialized = false;
+    this.maxHealth = MAX_HEALTH;
+    this.health = MAX_HEALTH;
+    this.lives = MAX_LIVES;
+    this.invulnerability = 0;
+    this.gameOver = false;
   }
 
   syncToViewport(size) {
@@ -59,6 +67,13 @@ export class PlayerJet {
     this.previousPosition.x = this.position.x;
     this.previousPosition.y = this.position.y;
     this.previousAngle = this.angle;
+    this.invulnerability = Math.max(0, this.invulnerability - dt);
+
+    if (this.gameOver) {
+      this.velocity.x = 0;
+      this.velocity.y = 0;
+      return;
+    }
 
     const pixelRatio = size.pixelRatio;
     const keyboard = normalize(input.moveX, input.moveY);
@@ -133,8 +148,10 @@ export class PlayerJet {
     const scale = pixelRatio;
     const speed = Math.hypot(this.velocity.x, this.velocity.y);
     const flame = clamp(speed / (BASE_MAX_SPEED * pixelRatio), 0, 1);
+    const blink = this.invulnerability > 0 && Math.floor(this.invulnerability * 12) % 2 === 0;
 
     ctx.save();
+    ctx.globalAlpha = blink ? 0.48 : 1;
     ctx.translate(x, y);
     ctx.rotate(angle);
     ctx.scale(scale, scale);
@@ -185,6 +202,54 @@ export class PlayerJet {
     ctx.stroke();
 
     ctx.restore();
+  }
+
+  resetCombatState(size) {
+    this.maxHealth = MAX_HEALTH;
+    this.health = MAX_HEALTH;
+    this.lives = MAX_LIVES;
+    this.invulnerability = RESPAWN_INVULNERABILITY_SECONDS;
+    this.gameOver = false;
+    this.velocity.x = 0;
+    this.velocity.y = 0;
+    this.initialized = false;
+    this.syncToViewport(size);
+  }
+
+  applyDamage(amount) {
+    if (this.gameOver || this.invulnerability > 0 || amount <= 0) {
+      return false;
+    }
+
+    this.health = Math.max(0, this.health - amount);
+
+    if (this.health > 0) {
+      this.invulnerability = 0.28;
+      return true;
+    }
+
+    this.lives = Math.max(0, this.lives - 1);
+
+    if (this.lives === 0) {
+      this.gameOver = true;
+      this.velocity.x = 0;
+      this.velocity.y = 0;
+      return true;
+    }
+
+    this.health = this.maxHealth;
+    this.invulnerability = RESPAWN_INVULNERABILITY_SECONDS;
+    this.velocity.x = 0;
+    this.velocity.y = 0;
+    return true;
+  }
+
+  getCollisionCircle(pixelRatio) {
+    return {
+      x: this.position.x,
+      y: this.position.y,
+      radius: BASE_RADIUS * pixelRatio * 0.78,
+    };
   }
 
   getForwardVector() {

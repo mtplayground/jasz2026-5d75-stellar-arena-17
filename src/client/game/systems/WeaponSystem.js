@@ -39,6 +39,16 @@ export class WeaponSystem {
     this.status = this.getStatus();
   }
 
+  reset() {
+    this.cooldowns = Object.fromEntries(WEAPON_ORDER.map((type) => [type, 0]));
+    this.projectiles = [];
+    this.missiles = [];
+    this.beams = [];
+    this.laserCharge = 0;
+    this.chargeMount = null;
+    this.status = this.getStatus();
+  }
+
   update(dt, player, input, size) {
     this.applySelection(input.selectedWeapon);
     this.tickCooldowns(dt);
