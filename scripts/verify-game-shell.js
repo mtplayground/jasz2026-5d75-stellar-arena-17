@@ -19,6 +19,7 @@ const files = [
   "src/client/game/entities/PlayerJet.js",
   "src/client/game/InputController.js",
   "src/client/game/Renderer.js",
+  "src/client/game/systems/CombatSystem.js",
   "src/client/game/systems/EnemySystem.js",
   "src/client/game/systems/WeaponSystem.js",
   "src/client/game/Viewport.js",
@@ -57,6 +58,14 @@ if (!html.includes('id="collection-screen"')) {
 
 if (!html.includes('id="weapon-status"')) {
   throw new Error("Weapon status readout is missing from index.html");
+}
+
+if (
+  !html.includes('id="health-status"') ||
+  !html.includes('id="lives-status"') ||
+  !html.includes('id="combat-status"')
+) {
+  throw new Error("Combat health, lives, and state readouts are missing from index.html");
 }
 
 if (!css.includes("width: 100vw") || !css.includes("height: 100vh")) {

@@ -1,9 +1,10 @@
 import { PlayerJet } from "./entities/PlayerJet.js";
+import { CombatSystem } from "./systems/CombatSystem.js";
 import { EnemySystem } from "./systems/EnemySystem.js";
 import { WeaponSystem } from "./systems/WeaponSystem.js";
 
 export class Renderer {
-  constructor(canvas, viewport, input, weaponStatus) {
+  constructor(canvas, viewport, input, hud = {}) {
     const context = canvas.getContext("2d", { alpha: false });
 
     if (!context) {
@@ -13,12 +14,13 @@ export class Renderer {
     this.canvas = canvas;
     this.viewport = viewport;
     this.input = input;
-    this.weaponStatus = weaponStatus;
+    this.hud = hud;
     this.context = context;
     this.starLayers = this.createStarLayers();
     this.player = new PlayerJet();
     this.enemies = new EnemySystem();
     this.weapons = new WeaponSystem();
+    this.combat = new CombatSystem();
     this.wasGameActive = false;
   }
 
@@ -48,18 +50,38 @@ export class Renderer {
     }
 
     const gameActive = this.input.isFlightEnabled();
+
+    if (gameActive && !this.wasGameActive) {
+      this.player.resetCombatState(this.viewport.size);
+      this.enemies.reset();
+      this.weapons.reset();
+      this.combat.reset();
+    }
+
     this.player.update(dt, this.input.getFlightInput(), this.viewport.size);
 
     if (gameActive) {
-      this.enemies.update(dt, this.player, this.viewport.size);
+      if (!this.player.gameOver) {
+        this.enemies.update(dt, this.player, this.viewport.size);
+        this.weapons.update(dt, this.player, this.input.getWeaponInput(), this.viewport.size);
+      }
+
+      this.combat.update(dt, {
+        player: this.player,
+        enemies: this.enemies,
+        weapons: this.weapons,
+        size: this.viewport.size,
+      });
       this.wasGameActive = true;
     } else if (this.wasGameActive) {
       this.enemies.reset();
+      this.weapons.reset();
+      this.combat.reset();
       this.wasGameActive = false;
     }
 
-    this.weapons.update(dt, this.player, this.input.getWeaponInput(), this.viewport.size);
     this.updateWeaponStatus();
+    this.updateCombatStatus(gameActive);
   }
 
   render(alpha) {
@@ -72,17 +94,40 @@ export class Renderer {
     this.drawPointerReticle(ctx);
     this.enemies.draw(ctx, alpha, this.viewport.size.pixelRatio);
     this.weapons.draw(ctx, this.viewport.size.pixelRatio);
+    this.combat.draw(ctx, this.viewport.size.pixelRatio);
     this.player.draw(ctx, alpha, this.viewport.size.pixelRatio);
   }
 
   updateWeaponStatus() {
-    if (!this.weaponStatus) {
+    if (!this.hud.weaponStatus) {
       return;
     }
 
     const status = this.weapons.status;
     const charge = status.charge > 0 ? ` ${Math.round(status.charge * 100)}%` : "";
-    this.weaponStatus.textContent = `${status.label}${charge}`;
+    this.hud.weaponStatus.textContent = `${status.label}${charge}`;
+  }
+
+  updateCombatStatus(gameActive) {
+    if (this.hud.healthStatus) {
+      this.hud.healthStatus.textContent = `${Math.ceil(this.player.health)}/${this.player.maxHealth}`;
+    }
+
+    if (this.hud.livesStatus) {
+      this.hud.livesStatus.textContent = String(this.player.lives);
+    }
+
+    if (this.hud.combatStatus) {
+      if (this.player.gameOver) {
+        this.hud.combatStatus.textContent = "Game Over";
+      } else if (!gameActive) {
+        this.hud.combatStatus.textContent = "Ready";
+      } else if (this.player.invulnerability > 0) {
+        this.hud.combatStatus.textContent = "Recovering";
+      } else {
+        this.hud.combatStatus.textContent = "Engaged";
+      }
+    }
   }
 
   drawBackground(ctx, width, height) {
