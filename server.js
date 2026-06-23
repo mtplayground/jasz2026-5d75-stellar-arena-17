@@ -2,7 +2,12 @@ import { createReadStream, existsSync, statSync } from "node:fs";
 import { createServer } from "node:http";
 import { extname, isAbsolute, join, normalize, relative, resolve } from "node:path";
 import { buildLoginUrl, verifySession } from "./src/server/auth.js";
-import { ensureSchema, getPool, upsertPlayerFromClaims } from "./src/server/db.js";
+import {
+  ensureSchema,
+  getPool,
+  saveClearedLevelForClaims,
+  upsertPlayerFromClaims,
+} from "./src/server/db.js";
 
 const host = process.env.HOST || "0.0.0.0";
 const port = Number.parseInt(process.env.PORT || "8080", 10);
@@ -93,6 +98,10 @@ async function handleAuth(req, res, pathname) {
 }
 
 async function handleApi(req, res, pathname) {
+  if (pathname === "/api/player/progress") {
+    return handlePlayerProgress(req, res);
+  }
+
   if (pathname !== "/api/player") {
     return false;
   }
@@ -131,6 +140,7 @@ async function handleApi(req, res, pathname) {
         email: player.email,
         name: player.name,
         pictureUrl: player.pictureUrl,
+        highestClearedLevel: player.highestClearedLevel,
         createdAt: player.createdAt,
         lastSeenAt: player.lastSeenAt,
       },
@@ -149,6 +159,73 @@ async function handleApi(req, res, pathname) {
       authenticated: true,
       error: "player_persistence_unavailable",
       message: "Player account storage is temporarily unavailable.",
+    });
+  }
+
+  return true;
+}
+
+async function handlePlayerProgress(req, res) {
+  if (req.method !== "POST") {
+    writeJson(res, 405, { error: "method_not_allowed" });
+    return true;
+  }
+
+  let body = {};
+  try {
+    body = await readJsonBody(req);
+  } catch {
+    writeJson(res, 400, { error: "invalid_json" });
+    return true;
+  }
+
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    writeJson(res, 400, { error: "invalid_json" });
+    return true;
+  }
+
+  const clearedLevel = Number(body.clearedLevel);
+  if (!Number.isInteger(clearedLevel) || clearedLevel < 1) {
+    writeJson(res, 400, { error: "invalid_cleared_level" });
+    return true;
+  }
+
+  const claims = await verifySession(req);
+  const loginUrl = buildLoginUrl(req);
+
+  if (!claims) {
+    writeJson(res, 401, {
+      authenticated: false,
+      loginUrl,
+    });
+    return true;
+  }
+
+  try {
+    const player = await saveClearedLevelForClaims(claims, clearedLevel);
+    writeJson(res, 200, {
+      authenticated: true,
+      player: {
+        sub: player.sub,
+        email: player.email,
+        name: player.name,
+        pictureUrl: player.pictureUrl,
+        highestClearedLevel: player.highestClearedLevel,
+        createdAt: player.createdAt,
+        lastSeenAt: player.lastSeenAt,
+      },
+      message: `Level ${clearedLevel} clear recorded.`,
+    });
+  } catch (err) {
+    console.error("Player progress save failed", {
+      name: err.name,
+      message: err.message,
+      stack: err.stack,
+    });
+    writeJson(res, 503, {
+      authenticated: true,
+      error: "player_progress_unavailable",
+      message: "Player progress could not be saved.",
     });
   }
 

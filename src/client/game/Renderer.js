@@ -1,4 +1,5 @@
 import { PlayerJet } from "./entities/PlayerJet.js";
+import { getNextLevelNumber, MAX_LEVEL_NUMBER } from "./data/levelDefinitions.js";
 import { CombatSystem } from "./systems/CombatSystem.js";
 import { EnemySystem } from "./systems/EnemySystem.js";
 import { LevelSystem } from "./systems/LevelSystem.js";
@@ -24,6 +25,15 @@ export class Renderer {
     this.weapons = new WeaponSystem();
     this.combat = new CombatSystem();
     this.wasGameActive = false;
+    this.highestClearedLevel = 0;
+    this.currentLevelNumber = 1;
+    this.resultState = {
+      visible: false,
+      outcome: null,
+      saving: false,
+      saved: false,
+    };
+    this.bindResultControls();
   }
 
   createStarLayers() {
@@ -54,11 +64,7 @@ export class Renderer {
     const gameActive = this.input.isFlightEnabled();
 
     if (gameActive && !this.wasGameActive) {
-      this.player.resetCombatState(this.viewport.size);
-      this.enemies.reset();
-      this.level.reset();
-      this.weapons.reset();
-      this.combat.reset();
+      this.startRun(this.getNextPlayableLevelNumber());
     }
 
     this.player.update(dt, this.input.getFlightInput(), this.viewport.size);
@@ -79,12 +85,14 @@ export class Renderer {
       if (!this.player.gameOver) {
         this.level.evaluateClear(this.enemies);
       }
+      this.resolveResultState();
       this.wasGameActive = true;
     } else if (this.wasGameActive) {
       this.enemies.reset();
       this.level.reset();
       this.weapons.reset();
       this.combat.reset();
+      this.hideResult();
       this.wasGameActive = false;
     }
 
@@ -137,6 +145,169 @@ export class Renderer {
         this.hud.combatStatus.textContent = "Recovering";
       } else {
         this.hud.combatStatus.textContent = "Engaged";
+      }
+    }
+  }
+
+  bindResultControls() {
+    if (this.hud.resultPrimary) {
+      this.hud.resultPrimary.addEventListener("click", () => {
+        if (this.resultState.outcome === "victory") {
+          this.startRun(this.getNextPlayableLevelNumber());
+        } else {
+          this.startRun(this.currentLevelNumber);
+        }
+      });
+    }
+
+    if (this.hud.resultMenu) {
+      this.hud.resultMenu.addEventListener("click", () => {
+        this.hideResult();
+        window.location.hash = "menu";
+      });
+    }
+  }
+
+  setPlayerProgress(player) {
+    const highestClearedLevel = Number.parseInt(String(player?.highestClearedLevel || "0"), 10);
+    this.highestClearedLevel = Number.isFinite(highestClearedLevel)
+      ? Math.max(0, highestClearedLevel)
+      : 0;
+  }
+
+  getNextPlayableLevelNumber() {
+    return getNextLevelNumber(this.highestClearedLevel);
+  }
+
+  startRun(levelNumber) {
+    this.currentLevelNumber = Math.min(MAX_LEVEL_NUMBER, Math.max(1, levelNumber));
+    this.player.resetCombatState(this.viewport.size);
+    this.enemies.reset();
+    this.level.resetToLevelNumber(this.currentLevelNumber);
+    this.weapons.reset();
+    this.combat.reset();
+    this.hideResult();
+    this.wasGameActive = true;
+  }
+
+  resolveResultState() {
+    if (this.resultState.visible) {
+      return;
+    }
+
+    if (this.level.levelClear) {
+      this.showVictory();
+      return;
+    }
+
+    if (this.player.gameOver) {
+      this.showDefeat();
+    }
+  }
+
+  showVictory() {
+    this.resultState = {
+      visible: true,
+      outcome: "victory",
+      saving: true,
+      saved: false,
+    };
+    this.setResultContent({
+      label: "Victory",
+      title: `${this.level.status.levelLabel} Clear`,
+      summary: "Saving progress.",
+      primary: this.currentLevelNumber >= MAX_LEVEL_NUMBER ? "Replay" : "Continue",
+    });
+    this.saveProgress(this.currentLevelNumber);
+  }
+
+  showDefeat() {
+    this.resultState = {
+      visible: true,
+      outcome: "defeat",
+      saving: false,
+      saved: false,
+    };
+    this.setResultContent({
+      label: "Defeat",
+      title: "Jet Destroyed",
+      summary: `Retry ${this.level.status.levelLabel}.`,
+      primary: "Retry",
+    });
+  }
+
+  hideResult() {
+    this.resultState.visible = false;
+    this.resultState.outcome = null;
+    this.resultState.saving = false;
+    if (this.hud.resultScreen) {
+      this.hud.resultScreen.hidden = true;
+      this.canvas.closest(".app-shell")?.removeAttribute("data-result-visible");
+    }
+    if (this.hud.resultPrimary) {
+      this.hud.resultPrimary.disabled = false;
+    }
+  }
+
+  setResultContent({ label, title, summary, primary }) {
+    if (this.hud.resultScreen) {
+      this.hud.resultScreen.hidden = false;
+      this.canvas.closest(".app-shell")?.setAttribute("data-result-visible", "true");
+    }
+    if (this.hud.resultLabel) this.hud.resultLabel.textContent = label;
+    if (this.hud.resultTitle) this.hud.resultTitle.textContent = title;
+    if (this.hud.resultSummary) this.hud.resultSummary.textContent = summary;
+    if (this.hud.resultPrimary) this.hud.resultPrimary.textContent = primary;
+    if (this.hud.resultPrimary) this.hud.resultPrimary.disabled = this.resultState.saving;
+  }
+
+  async saveProgress(clearedLevel) {
+    try {
+      const response = await fetch("/api/player/progress", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          accept: "application/json",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ clearedLevel }),
+      });
+      const payload = await response.json();
+
+      if (!response.ok || !payload.authenticated || !payload.player) {
+        throw new Error(payload.message || "Progress save failed");
+      }
+
+      this.setPlayerProgress(payload.player);
+      this.resultState.saving = false;
+      this.resultState.saved = true;
+      if (this.hud.resultPrimary) {
+        this.hud.resultPrimary.disabled = false;
+      }
+      this.hud.onProgressSaved?.(payload.player);
+
+      const nextLevel = this.getNextPlayableLevelNumber();
+      const summary =
+        clearedLevel >= MAX_LEVEL_NUMBER
+          ? `Highest cleared level: ${payload.player.highestClearedLevel}.`
+          : `Highest cleared level: ${payload.player.highestClearedLevel}. Next: Level ${nextLevel}.`;
+      if (this.hud.resultSummary) {
+        this.hud.resultSummary.textContent = summary;
+      }
+    } catch (err) {
+      console.error("Player progress save failed", {
+        name: err.name,
+        message: err.message,
+        stack: err.stack,
+      });
+      this.highestClearedLevel = Math.max(this.highestClearedLevel, clearedLevel);
+      this.resultState.saving = false;
+      if (this.hud.resultPrimary) {
+        this.hud.resultPrimary.disabled = false;
+      }
+      if (this.hud.resultSummary) {
+        this.hud.resultSummary.textContent =
+          "Progress could not be saved. Next level is unlocked for this session.";
       }
     }
   }

@@ -1,4 +1,8 @@
-import { DEFAULT_LEVEL_ID, getLevelDefinition } from "../data/levelDefinitions.js";
+import {
+  DEFAULT_LEVEL_ID,
+  getLevelDefinition,
+  getLevelDefinitionForNumber,
+} from "../data/levelDefinitions.js";
 
 export class LevelSystem {
   constructor(levelId = DEFAULT_LEVEL_ID) {
@@ -14,6 +18,10 @@ export class LevelSystem {
     this.spawnTimer = 0;
     this.levelClear = false;
     this.status = this.createStatus("Preparing");
+  }
+
+  resetToLevelNumber(levelNumber) {
+    this.reset(getLevelDefinitionForNumber(levelNumber).id);
   }
 
   currentWave() {

@@ -67,6 +67,14 @@ if (!html.includes('id="level-status"') || !html.includes('id="wave-status"')) {
 }
 
 if (
+  !html.includes('id="result-screen"') ||
+  !html.includes('id="result-primary"') ||
+  !html.includes('id="result-menu"')
+) {
+  throw new Error("Level result screen controls are missing from index.html");
+}
+
+if (
   !html.includes('id="health-status"') ||
   !html.includes('id="lives-status"') ||
   !html.includes('id="combat-status"')

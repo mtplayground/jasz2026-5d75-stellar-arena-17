@@ -15,6 +15,13 @@ export function createGameShell({
   healthStatus,
   livesStatus,
   combatStatus,
+  resultScreen,
+  resultLabel,
+  resultTitle,
+  resultSummary,
+  resultPrimary,
+  resultMenu,
+  onProgressSaved,
 }) {
   if (!canvas || !screenSize || !loopState || !pauseToggle || !pauseBanner) {
     throw new Error("Game shell could not find all required DOM elements");
@@ -50,6 +57,13 @@ export function createGameShell({
     healthStatus,
     livesStatus,
     combatStatus,
+    resultScreen,
+    resultLabel,
+    resultTitle,
+    resultSummary,
+    resultPrimary,
+    resultMenu,
+    onProgressSaved,
   });
   const loop = new GameLoop({
     update: (dt) => renderer.update(dt),
@@ -94,6 +108,9 @@ export function createGameShell({
       viewport.stop();
       loop.stop();
       setPausePresentation(true);
+    },
+    setPlayerProgress(player) {
+      renderer.setPlayerProgress(player);
     },
   };
 }

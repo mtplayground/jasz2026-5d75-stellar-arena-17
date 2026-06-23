@@ -31,9 +31,15 @@ export async function ensureSchema(db = getPool()) {
       email TEXT NOT NULL,
       name TEXT,
       picture_url TEXT,
+      highest_cleared_level INTEGER NOT NULL DEFAULT 0,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
+  `);
+
+  await db.query(`
+    ALTER TABLE players
+    ADD COLUMN IF NOT EXISTS highest_cleared_level INTEGER NOT NULL DEFAULT 0
   `);
 }
 
@@ -61,11 +67,44 @@ export async function upsertPlayerFromClaims(claims, db = getPool()) {
         email,
         name,
         picture_url AS "pictureUrl",
+        highest_cleared_level AS "highestClearedLevel",
         created_at AS "createdAt",
         last_seen_at AS "lastSeenAt",
         (xmax = 0) AS "isNew"
     `,
     [claims.sub, claims.email, claims.name || null, claims.picture || null],
+  );
+
+  return result.rows[0];
+}
+
+export async function saveClearedLevelForClaims(claims, clearedLevel, db = getPool()) {
+  if (!db) {
+    throw new Error("DATABASE_URL is not configured");
+  }
+
+  if (!Number.isInteger(clearedLevel) || clearedLevel < 1) {
+    throw new Error("Cleared level must be a positive integer");
+  }
+
+  const player = await upsertPlayerFromClaims(claims, db);
+  const result = await db.query(
+    `
+      UPDATE players
+      SET
+        highest_cleared_level = GREATEST(highest_cleared_level, $2),
+        last_seen_at = NOW()
+      WHERE sub = $1
+      RETURNING
+        sub,
+        email,
+        name,
+        picture_url AS "pictureUrl",
+        highest_cleared_level AS "highestClearedLevel",
+        created_at AS "createdAt",
+        last_seen_at AS "lastSeenAt"
+    `,
+    [player.sub, clearedLevel],
   );
 
   return result.rows[0];
