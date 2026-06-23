@@ -10,6 +10,8 @@ export function createGameShell({
   pauseToggle,
   pauseBanner,
   weaponStatus,
+  levelStatus,
+  waveStatus,
   healthStatus,
   livesStatus,
   combatStatus,
@@ -43,6 +45,8 @@ export function createGameShell({
   });
   const renderer = new Renderer(canvas, viewport, input, {
     weaponStatus,
+    levelStatus,
+    waveStatus,
     healthStatus,
     livesStatus,
     combatStatus,
