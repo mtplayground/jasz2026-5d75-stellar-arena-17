@@ -6,6 +6,7 @@ const projectRoot = resolve(import.meta.dirname, "..");
 const files = [
   "server.js",
   "scripts/build.js",
+  "scripts/e2e-playthrough.js",
   "scripts/migrate.js",
   "src/shared/gearCatalog.js",
   "src/server/auth.js",
