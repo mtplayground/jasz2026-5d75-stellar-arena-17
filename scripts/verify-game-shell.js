@@ -71,9 +71,11 @@ if (!html.includes('id="level-status"') || !html.includes('id="wave-status"')) {
 if (
   !html.includes('id="result-screen"') ||
   !html.includes('id="result-primary"') ||
-  !html.includes('id="result-menu"')
+  !html.includes('id="result-menu"') ||
+  !html.includes('id="loot-reveal"') ||
+  !html.includes('id="loot-stats"')
 ) {
-  throw new Error("Level result screen controls are missing from index.html");
+  throw new Error("Level result and loot reveal controls are missing from index.html");
 }
 
 if (
@@ -86,6 +88,14 @@ if (
 
 if (!css.includes("width: 100vw") || !css.includes("height: 100vh")) {
   throw new Error("The app shell must cover the full browser viewport");
+}
+
+if (
+  !css.includes("@keyframes loot-card-pop") ||
+  !css.includes('data-rarity="legendary"') ||
+  !css.includes(".loot-stats")
+) {
+  throw new Error("Loot box reveal animation and rarity styling are missing from styles.css");
 }
 
 for (const rarity of ["common", "uncommon", "rare", "epic", "legendary"]) {
