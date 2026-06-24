@@ -32,6 +32,7 @@ export class Renderer {
       outcome: null,
       saving: false,
       saved: false,
+      drop: null,
     };
     this.bindResultControls();
   }
@@ -211,6 +212,7 @@ export class Renderer {
       outcome: "victory",
       saving: true,
       saved: false,
+      drop: null,
     };
     this.setResultContent({
       label: "Victory",
@@ -227,6 +229,7 @@ export class Renderer {
       outcome: "defeat",
       saving: false,
       saved: false,
+      drop: null,
     };
     this.setResultContent({
       label: "Defeat",
@@ -240,10 +243,12 @@ export class Renderer {
     this.resultState.visible = false;
     this.resultState.outcome = null;
     this.resultState.saving = false;
+    this.resultState.drop = null;
     if (this.hud.resultScreen) {
       this.hud.resultScreen.hidden = true;
       this.canvas.closest(".app-shell")?.removeAttribute("data-result-visible");
     }
+    this.hideLootReveal();
     if (this.hud.resultPrimary) {
       this.hud.resultPrimary.disabled = false;
     }
@@ -257,8 +262,110 @@ export class Renderer {
     if (this.hud.resultLabel) this.hud.resultLabel.textContent = label;
     if (this.hud.resultTitle) this.hud.resultTitle.textContent = title;
     if (this.hud.resultSummary) this.hud.resultSummary.textContent = summary;
+    this.hideLootReveal();
     if (this.hud.resultPrimary) this.hud.resultPrimary.textContent = primary;
     if (this.hud.resultPrimary) this.hud.resultPrimary.disabled = this.resultState.saving;
+  }
+
+  hideLootReveal() {
+    if (this.hud.lootReveal) {
+      this.hud.lootReveal.hidden = true;
+      this.hud.lootReveal.removeAttribute("data-rarity");
+    }
+
+    if (this.hud.lootCard) {
+      this.hud.lootCard.style.removeProperty("--loot-color");
+    }
+
+    if (this.hud.lootStats) {
+      this.hud.lootStats.replaceChildren();
+    }
+  }
+
+  showLootReveal(drop, alreadyGranted) {
+    if (!drop || !this.hud.lootReveal) {
+      return;
+    }
+
+    this.resultState.drop = drop;
+    const rarityColor = drop.rarityColor || "#f7f8fb";
+    const rarityText = `${drop.rarityColorName || ""} ${drop.rarityLabel || drop.rarity || "Gear"}`.trim();
+    const weaponType = this.formatWeaponType(drop.weaponType);
+
+    this.hud.lootReveal.hidden = false;
+    this.hud.lootReveal.dataset.rarity = drop.rarity || "common";
+
+    if (this.hud.lootCard) {
+      this.hud.lootCard.style.setProperty("--loot-color", rarityColor);
+      this.hud.lootCard.dataset.rarity = drop.rarity || "common";
+    }
+
+    if (this.hud.lootRarity) {
+      this.hud.lootRarity.textContent = alreadyGranted
+        ? `Already claimed - ${rarityText}`
+        : rarityText;
+    }
+
+    if (this.hud.lootName) {
+      this.hud.lootName.textContent = drop.name || "Gear";
+    }
+
+    if (this.hud.lootType) {
+      this.hud.lootType.textContent = `${weaponType} weapon`;
+    }
+
+    if (this.hud.lootStats) {
+      this.hud.lootStats.replaceChildren(...this.createStatNodes(drop.stats || {}));
+    }
+  }
+
+  createStatNodes(stats) {
+    const entries = Object.entries(stats).filter(([, value]) => Number.isFinite(Number(value)));
+
+    return entries.flatMap(([key, value]) => {
+      const term = document.createElement("dt");
+      const detail = document.createElement("dd");
+      term.textContent = this.formatStatName(key);
+      detail.textContent = this.formatStatValue(key, value);
+      return [term, detail];
+    });
+  }
+
+  formatWeaponType(weaponType) {
+    if (!weaponType) {
+      return "Gear";
+    }
+
+    return String(weaponType)
+      .split(/[-_\s]+/)
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" ");
+  }
+
+  formatStatName(statName) {
+    return String(statName)
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .replace(/[-_]/g, " ")
+      .replace(/\b\w/g, (letter) => letter.toUpperCase());
+  }
+
+  formatStatValue(statName, value) {
+    const number = Number(value);
+
+    if (!Number.isFinite(number)) {
+      return String(value);
+    }
+
+    if (statName === "fireRate") {
+      return `${number.toFixed(2).replace(/\.?0+$/, "")}/s`;
+    }
+
+    if (statName === "chargeTime" || statName === "beamDuration") {
+      return `${number.toFixed(2).replace(/\.?0+$/, "")}s`;
+    }
+
+    return Number.isInteger(number) ? String(number) : number.toFixed(2).replace(/\.?0+$/, "");
   }
 
   async saveProgress(clearedLevel) {
@@ -287,10 +394,11 @@ export class Renderer {
       this.hud.onProgressSaved?.(payload.player);
 
       const nextLevel = this.getNextPlayableLevelNumber();
-      const dropText = payload.drop
-        ? ` Drop: ${payload.drop.rarityColorName} ${payload.drop.name}.`
-        : "";
-      const grantText = payload.alreadyGranted ? " Reward already claimed." : dropText;
+      const grantText = payload.alreadyGranted
+        ? " Reward already claimed."
+        : payload.drop
+          ? " Loot box opened."
+          : "";
       const summary =
         clearedLevel >= MAX_LEVEL_NUMBER
           ? `Highest cleared level: ${payload.player.highestClearedLevel}.${grantText}`
@@ -298,6 +406,7 @@ export class Renderer {
       if (this.hud.resultSummary) {
         this.hud.resultSummary.textContent = summary;
       }
+      this.showLootReveal(payload.drop, Boolean(payload.alreadyGranted));
     } catch (err) {
       console.error("Player progress save failed", {
         name: err.name,
