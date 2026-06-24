@@ -4,6 +4,7 @@ import { extname, isAbsolute, join, normalize, relative, resolve } from "node:pa
 import { buildLoginUrl, verifySession } from "./src/server/auth.js";
 import {
   ensureSchema,
+  equipGearForPlayer,
   getPool,
   listGearForPlayer,
   recordLevelClearAndGrantDrop,
@@ -99,6 +100,10 @@ async function handleAuth(req, res, pathname) {
 }
 
 async function handleApi(req, res, pathname) {
+  if (pathname === "/api/gear/equip") {
+    return handleGearEquip(req, res);
+  }
+
   if (pathname === "/api/gear") {
     return handleGear(req, res);
   }
@@ -264,6 +269,7 @@ async function handleGear(req, res) {
       authenticated: true,
       definitions: gear.definitions,
       ownedGear: gear.ownedGear,
+      equippedLoadout: gear.equippedLoadout,
     });
   } catch (err) {
     console.error("Gear fetch failed", {
@@ -275,6 +281,73 @@ async function handleGear(req, res) {
       authenticated: true,
       error: "gear_unavailable",
       message: "Gear data is temporarily unavailable.",
+    });
+  }
+
+  return true;
+}
+
+async function handleGearEquip(req, res) {
+  if (req.method !== "POST") {
+    writeJson(res, 405, { error: "method_not_allowed" });
+    return true;
+  }
+
+  let body = {};
+  try {
+    body = await readJsonBody(req);
+  } catch {
+    writeJson(res, 400, { error: "invalid_json" });
+    return true;
+  }
+
+  const ownedGearId = Number(body?.ownedGearId);
+  if (!Number.isInteger(ownedGearId) || ownedGearId < 1) {
+    writeJson(res, 400, { error: "invalid_owned_gear_id" });
+    return true;
+  }
+
+  const claims = await verifySession(req);
+  const loginUrl = buildLoginUrl(req);
+
+  if (!claims) {
+    writeJson(res, 401, {
+      authenticated: false,
+      loginUrl,
+    });
+    return true;
+  }
+
+  try {
+    const gear = await equipGearForPlayer(claims, ownedGearId);
+    writeJson(res, 200, {
+      authenticated: true,
+      definitions: gear.definitions,
+      ownedGear: gear.ownedGear,
+      equippedLoadout: gear.equippedLoadout,
+      message: "Loadout updated.",
+    });
+  } catch (err) {
+    console.error("Gear equip failed", {
+      name: err.name,
+      code: err.code,
+      message: err.message,
+      stack: err.stack,
+    });
+
+    if (err.code === "OWNED_GEAR_NOT_FOUND") {
+      writeJson(res, 404, {
+        authenticated: true,
+        error: "owned_gear_not_found",
+        message: "That gear item is not in this player's inventory.",
+      });
+      return true;
+    }
+
+    writeJson(res, 503, {
+      authenticated: true,
+      error: "gear_equip_unavailable",
+      message: "Gear could not be equipped.",
     });
   }
 

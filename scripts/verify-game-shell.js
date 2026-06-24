@@ -42,6 +42,12 @@ for (const file of files) {
 
 const html = await readFile(resolve(projectRoot, "src/client/index.html"), "utf8");
 const css = await readFile(resolve(projectRoot, "src/client/styles.css"), "utf8");
+const server = await readFile(resolve(projectRoot, "server.js"), "utf8");
+const appRouter = await readFile(resolve(projectRoot, "src/client/appRouter.js"), "utf8");
+const weaponSystem = await readFile(
+  resolve(projectRoot, "src/client/game/systems/WeaponSystem.js"),
+  "utf8",
+);
 const gearCatalog = await readFile(resolve(projectRoot, "src/shared/gearCatalog.js"), "utf8");
 
 if (!html.includes('<canvas id="game-canvas"')) {
@@ -105,9 +111,18 @@ if (
 if (
   !css.includes(".inventory-rarity-group") ||
   !css.includes(".inventory-card") ||
-  !css.includes(".inventory-stats")
+  !css.includes(".inventory-stats") ||
+  !css.includes(".inventory-equip-button")
 ) {
   throw new Error("Inventory grouping and gear card styles are missing from styles.css");
+}
+
+if (
+  !server.includes('pathname === "/api/gear/equip"') ||
+  !appRouter.includes('fetch("/api/gear/equip"') ||
+  !weaponSystem.includes("setEquippedLoadout")
+) {
+  throw new Error("Equipped gear API, UI action, or weapon-system loadout wiring is missing");
 }
 
 for (const rarity of ["common", "uncommon", "rare", "epic", "legendary"]) {

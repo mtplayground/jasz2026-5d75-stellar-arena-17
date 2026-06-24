@@ -97,6 +97,7 @@ export function initAppRouter({
   collectionRefresh,
   backButtons,
   gamePilot,
+  onLoadoutChange = () => {},
 }) {
   const required = [
     shell,
@@ -124,6 +125,8 @@ export function initAppRouter({
     status: "idle",
     ownerSub: null,
     ownedGear: [],
+    equippedLoadout: {},
+    savingGearId: null,
     error: null,
   };
 
@@ -190,7 +193,8 @@ export function initAppRouter({
       return;
     }
 
-    collectionRefresh.disabled = inventoryState.status === "loading";
+    collectionRefresh.disabled =
+      inventoryState.status === "loading" || inventoryState.savingGearId !== null;
 
     if (inventoryState.status === "loading") {
       collectionStatus.textContent = "Loading saved gear.";
@@ -304,7 +308,12 @@ export function initAppRouter({
       }),
     );
 
-    card.append(heading, meta, stats);
+    const action = createElement("button", "inventory-equip-button", gear.equipped ? "Equipped" : "Equip");
+    action.type = "button";
+    action.disabled = gear.equipped || inventoryState.savingGearId !== null;
+    action.addEventListener("click", () => equipGear(gear));
+
+    card.append(heading, meta, stats, action);
     return card;
   };
 
@@ -323,6 +332,8 @@ export function initAppRouter({
       status: "loading",
       ownerSub: player.sub,
       ownedGear: [],
+      equippedLoadout: {},
+      savingGearId: null,
       error: null,
     };
     renderCollection();
@@ -343,8 +354,11 @@ export function initAppRouter({
         status: "ready",
         ownerSub: player.sub,
         ownedGear: payload.ownedGear,
+        equippedLoadout: payload.equippedLoadout || {},
+        savingGearId: null,
         error: null,
       };
+      onLoadoutChange(inventoryState.equippedLoadout);
     } catch (err) {
       console.error("Inventory fetch failed", {
         name: err.name,
@@ -355,7 +369,66 @@ export function initAppRouter({
         status: "error",
         ownerSub: player.sub,
         ownedGear: [],
+        equippedLoadout: {},
+        savingGearId: null,
         error: "Inventory is temporarily unavailable.",
+      };
+    }
+
+    renderCollection();
+  };
+
+  const equipGear = async (gear) => {
+    const player = session.player;
+
+    if (!player || !gear?.id || inventoryState.savingGearId !== null) {
+      return;
+    }
+
+    inventoryState = {
+      ...inventoryState,
+      status: "ready",
+      savingGearId: gear.id,
+      error: null,
+    };
+    renderCollection();
+
+    try {
+      const response = await fetch("/api/gear/equip", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          accept: "application/json",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ ownedGearId: gear.id }),
+      });
+      const payload = await response.json();
+
+      if (!response.ok || !payload.authenticated || !Array.isArray(payload.ownedGear)) {
+        throw new Error(payload.message || "Equip failed");
+      }
+
+      inventoryState = {
+        status: "ready",
+        ownerSub: player.sub,
+        ownedGear: payload.ownedGear,
+        equippedLoadout: payload.equippedLoadout || {},
+        savingGearId: null,
+        error: null,
+      };
+      onLoadoutChange(inventoryState.equippedLoadout);
+    } catch (err) {
+      console.error("Gear equip failed", {
+        name: err.name,
+        message: err.message,
+        stack: err.stack,
+      });
+      inventoryState = {
+        ...inventoryState,
+        status: "error",
+        savingGearId: null,
+        error: "Gear could not be equipped.",
       };
     }
 
@@ -385,10 +458,16 @@ export function initAppRouter({
           status: "idle",
           ownerSub: null,
           ownedGear: [],
+          equippedLoadout: {},
+          savingGearId: null,
           error: null,
         };
+        onLoadoutChange({});
       }
       render();
+      if (session.player) {
+        loadInventory();
+      }
     },
     updatePlayer(player) {
       if (session.player) {
@@ -397,9 +476,12 @@ export function initAppRouter({
           status: "idle",
           ownerSub: null,
           ownedGear: [],
+          equippedLoadout: {},
+          savingGearId: null,
           error: null,
         };
         render();
+        loadInventory();
       }
     },
     navigate,
