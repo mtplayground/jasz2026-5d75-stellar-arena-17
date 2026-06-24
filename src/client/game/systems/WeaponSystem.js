@@ -69,6 +69,8 @@ export class WeaponSystem {
     this.projectiles = [];
     this.missiles = [];
     this.beams = [];
+    this.muzzleFlashes = [];
+    this.events = [];
     this.laserCharge = 0;
     this.chargeMount = null;
     this.status = this.getStatus();
@@ -87,6 +89,8 @@ export class WeaponSystem {
     this.projectiles = [];
     this.missiles = [];
     this.beams = [];
+    this.muzzleFlashes = [];
+    this.events = [];
     this.laserCharge = 0;
     this.chargeMount = null;
     this.status = this.getStatus();
@@ -119,6 +123,7 @@ export class WeaponSystem {
     this.updateProjectiles(dt, size);
     this.updateMissiles(dt, size);
     this.updateBeams(dt);
+    this.updateMuzzleFlashes(dt);
     this.status = this.getStatus();
   }
 
@@ -159,6 +164,8 @@ export class WeaponSystem {
       age: 0,
       lifetime: definition.lifetime,
     });
+    this.addMuzzleFlash(mount, definition.color, 12 * pixelRatio);
+    this.addEvent("shoot-projectile", mount.x, mount.y);
   }
 
   fireMissile(definition, mount, direction, pointer, pixelRatio) {
@@ -177,6 +184,8 @@ export class WeaponSystem {
       target: pointer ? { x: pointer.x, y: pointer.y } : null,
       trail: [],
     });
+    this.addMuzzleFlash(mount, definition.color, 18 * pixelRatio);
+    this.addEvent("shoot-missile", mount.x, mount.y);
   }
 
   updateLaser(dt, definition, input, mount, direction, pixelRatio) {
@@ -199,6 +208,8 @@ export class WeaponSystem {
       });
       this.cooldowns[definition.type] = 1 / definition.fireRate;
       this.laserCharge = 0;
+      this.addMuzzleFlash(mount, definition.color, 22 * pixelRatio);
+      this.addEvent("shoot-laser", mount.x, mount.y);
     }
 
     if (!input.fireHeld && !input.fireReleased) {
@@ -260,10 +271,44 @@ export class WeaponSystem {
     this.beams = this.beams.filter((beam) => beam.age < beam.lifetime);
   }
 
+  updateMuzzleFlashes(dt) {
+    for (const flash of this.muzzleFlashes) {
+      flash.age += dt;
+    }
+    this.muzzleFlashes = this.muzzleFlashes.filter((flash) => flash.age < flash.lifetime);
+  }
+
+  addMuzzleFlash(mount, color, radius) {
+    this.muzzleFlashes.push({
+      x: mount.x,
+      y: mount.y,
+      color,
+      radius,
+      age: 0,
+      lifetime: 0.11,
+    });
+
+    if (this.muzzleFlashes.length > 24) {
+      this.muzzleFlashes.splice(0, this.muzzleFlashes.length - 24);
+    }
+  }
+
+  addEvent(type, x, y) {
+    this.events.push({ type, x, y });
+    if (this.events.length > 32) {
+      this.events.splice(0, this.events.length - 32);
+    }
+  }
+
+  consumeEvents() {
+    return this.events.splice(0);
+  }
+
   draw(ctx, pixelRatio) {
     this.drawBeams(ctx);
     this.drawProjectiles(ctx);
     this.drawMissiles(ctx);
+    this.drawMuzzleFlashes(ctx, pixelRatio);
     this.drawLaserCharge(ctx, pixelRatio);
   }
 
@@ -328,6 +373,21 @@ export class WeaponSystem {
       ctx.lineWidth = Math.max(2, beam.width * 0.35);
       ctx.strokeStyle = "#f7f8fb";
       ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  drawMuzzleFlashes(ctx, pixelRatio) {
+    for (const flash of this.muzzleFlashes) {
+      const progress = flash.age / flash.lifetime;
+      ctx.save();
+      ctx.globalAlpha = 1 - progress;
+      ctx.fillStyle = flash.color;
+      ctx.shadowColor = flash.color;
+      ctx.shadowBlur = 16 * pixelRatio;
+      ctx.beginPath();
+      ctx.arc(flash.x, flash.y, flash.radius * (1 - progress * 0.5), 0, Math.PI * 2);
+      ctx.fill();
       ctx.restore();
     }
   }

@@ -3,6 +3,7 @@ import { getNextLevelNumber, MAX_LEVEL_NUMBER } from "./data/levelDefinitions.js
 import { CombatSystem } from "./systems/CombatSystem.js";
 import { EnemySystem } from "./systems/EnemySystem.js";
 import { LevelSystem } from "./systems/LevelSystem.js";
+import { SoundSystem } from "./systems/SoundSystem.js";
 import { WeaponSystem } from "./systems/WeaponSystem.js";
 
 export class Renderer {
@@ -24,6 +25,8 @@ export class Renderer {
     this.level = new LevelSystem();
     this.weapons = new WeaponSystem();
     this.combat = new CombatSystem();
+    this.sound = new SoundSystem();
+    this.screenShake = 0;
     this.wasGameActive = false;
     this.highestClearedLevel = 0;
     this.currentLevelNumber = 1;
@@ -52,6 +55,7 @@ export class Renderer {
 
   update(dt) {
     const { width, height } = this.viewport.size;
+    this.screenShake = Math.max(0, this.screenShake - dt);
 
     for (const star of this.starLayers) {
       star.y += star.speed * dt;
@@ -83,6 +87,7 @@ export class Renderer {
         weapons: this.weapons,
         size: this.viewport.size,
       });
+      this.handleFeedbackEvents([...this.weapons.consumeEvents(), ...this.combat.consumeEvents()]);
       if (!this.player.gameOver) {
         this.level.evaluateClear(this.enemies);
       }
@@ -107,6 +112,11 @@ export class Renderer {
     const ctx = this.context;
 
     ctx.clearRect(0, 0, width, height);
+    const shake = this.screenShake > 0 ? this.screenShake * this.viewport.size.pixelRatio : 0;
+    ctx.save();
+    if (shake > 0) {
+      ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+    }
     this.drawBackground(ctx, width, height);
     this.drawStars(ctx);
     this.drawPointerReticle(ctx);
@@ -114,6 +124,7 @@ export class Renderer {
     this.weapons.draw(ctx, this.viewport.size.pixelRatio);
     this.combat.draw(ctx, this.viewport.size.pixelRatio);
     this.player.draw(ctx, alpha, this.viewport.size.pixelRatio);
+    ctx.restore();
   }
 
   updateWeaponStatus() {
@@ -124,11 +135,19 @@ export class Renderer {
     const status = this.weapons.status;
     const charge = status.charge > 0 ? ` ${Math.round(status.charge * 100)}%` : "";
     this.hud.weaponStatus.textContent = `${status.label}${charge}`;
+    if (this.hud.weaponDetail) {
+      this.hud.weaponDetail.textContent = `${status.damage} dmg`;
+    }
   }
 
   updateCombatStatus(gameActive) {
     if (this.hud.healthStatus) {
       this.hud.healthStatus.textContent = `${Math.ceil(this.player.health)}/${this.player.maxHealth}`;
+    }
+
+    if (this.hud.healthMeter) {
+      const healthRatio = this.player.maxHealth > 0 ? this.player.health / this.player.maxHealth : 0;
+      this.hud.healthMeter.style.setProperty("--health-ratio", String(Math.max(0, Math.min(1, healthRatio))));
     }
 
     if (this.hud.livesStatus) {
@@ -178,6 +197,18 @@ export class Renderer {
 
   setEquippedLoadout(equippedLoadout) {
     this.weapons.setEquippedLoadout(equippedLoadout || {});
+  }
+
+  handleFeedbackEvents(events) {
+    for (const event of events) {
+      this.sound.play(event.type);
+      if (event.type === "player-hit") {
+        this.screenShake = Math.max(this.screenShake, 8);
+      }
+      if (event.type === "explosion") {
+        this.screenShake = Math.max(this.screenShake, 5);
+      }
+    }
   }
 
   getNextPlayableLevelNumber() {
@@ -321,6 +352,7 @@ export class Renderer {
     if (this.hud.lootStats) {
       this.hud.lootStats.replaceChildren(...this.createStatNodes(drop.stats || {}));
     }
+    this.sound.play("loot");
   }
 
   createStatNodes(stats) {
@@ -437,6 +469,12 @@ export class Renderer {
     const status = this.level.status;
     if (this.hud.levelStatus) {
       this.hud.levelStatus.textContent = status.levelLabel;
+    }
+
+    if (this.hud.levelProgress) {
+      const progress =
+        status.enemiesTotal > 0 ? Math.min(1, status.enemiesSpawned / status.enemiesTotal) : 0;
+      this.hud.levelProgress.style.setProperty("--level-ratio", String(progress));
     }
 
     if (this.hud.waveStatus) {

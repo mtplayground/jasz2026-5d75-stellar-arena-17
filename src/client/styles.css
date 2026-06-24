@@ -621,6 +621,39 @@ body {
   font-weight: 700;
 }
 
+.hud-detail {
+  color: #c1cad8;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.hud-meter {
+  position: relative;
+  display: block;
+  width: 74px;
+  height: 5px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.hud-meter::before {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  background: #72d8ff;
+  content: "";
+  transform: scaleX(var(--health-ratio, var(--level-ratio, 0)));
+  transform-origin: left center;
+}
+
+.health-meter::before {
+  background: linear-gradient(90deg, #38d985, #d9f45f);
+}
+
+.level-meter::before {
+  background: linear-gradient(90deg, #72d8ff, #b47cff);
+}
+
 .icon-button {
   display: grid;
   place-items: center;

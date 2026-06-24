@@ -24,6 +24,7 @@ const files = [
   "src/client/game/systems/CombatSystem.js",
   "src/client/game/systems/EnemySystem.js",
   "src/client/game/systems/LevelSystem.js",
+  "src/client/game/systems/SoundSystem.js",
   "src/client/game/systems/WeaponSystem.js",
   "src/client/game/Viewport.js",
   "src/client/game/createGameShell.js",
@@ -46,6 +47,14 @@ const server = await readFile(resolve(projectRoot, "server.js"), "utf8");
 const appRouter = await readFile(resolve(projectRoot, "src/client/appRouter.js"), "utf8");
 const weaponSystem = await readFile(
   resolve(projectRoot, "src/client/game/systems/WeaponSystem.js"),
+  "utf8",
+);
+const combatSystem = await readFile(
+  resolve(projectRoot, "src/client/game/systems/CombatSystem.js"),
+  "utf8",
+);
+const soundSystem = await readFile(
+  resolve(projectRoot, "src/client/game/systems/SoundSystem.js"),
   "utf8",
 );
 const gearCatalog = await readFile(resolve(projectRoot, "src/shared/gearCatalog.js"), "utf8");
@@ -90,6 +99,9 @@ if (
 
 if (
   !html.includes('id="health-status"') ||
+  !html.includes('id="health-meter"') ||
+  !html.includes('id="weapon-detail"') ||
+  !html.includes('id="level-progress"') ||
   !html.includes('id="lives-status"') ||
   !html.includes('id="combat-status"')
 ) {
@@ -123,6 +135,15 @@ if (
   !weaponSystem.includes("setEquippedLoadout")
 ) {
   throw new Error("Equipped gear API, UI action, or weapon-system loadout wiring is missing");
+}
+
+if (
+  !soundSystem.includes("AudioContext") ||
+  !weaponSystem.includes("consumeEvents") ||
+  !combatSystem.includes("consumeEvents") ||
+  !css.includes(".hud-meter")
+) {
+  throw new Error("Sound effects, feedback events, or HUD meter polish is missing");
 }
 
 for (const rarity of ["common", "uncommon", "rare", "epic", "legendary"]) {
