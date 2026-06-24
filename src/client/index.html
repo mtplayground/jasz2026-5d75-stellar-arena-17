@@ -46,8 +46,12 @@
         <section id="collection-screen" class="screen-panel collection-screen" hidden>
           <span class="label">Inventory</span>
           <h1 id="collection-owner">Collection</h1>
-          <div class="empty-inventory">No gear</div>
-          <button class="secondary-action" type="button" data-nav-route="menu">Back</button>
+          <p id="collection-status">Saved gear loads here.</p>
+          <div id="collection-groups" class="collection-groups" hidden></div>
+          <div class="menu-actions">
+            <button id="collection-refresh" class="secondary-action" type="button">Refresh</button>
+            <button class="secondary-action" type="button" data-nav-route="menu">Back</button>
+          </div>
         </section>
 
         <section id="game-screen" class="game-screen" hidden>

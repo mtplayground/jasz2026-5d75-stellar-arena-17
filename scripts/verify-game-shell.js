@@ -56,7 +56,11 @@ if (!html.includes('id="menu-screen"') || !html.includes('id="play-button"')) {
   throw new Error("Main menu and Play flow controls are missing from index.html");
 }
 
-if (!html.includes('id="collection-screen"')) {
+if (
+  !html.includes('id="collection-screen"') ||
+  !html.includes('id="collection-groups"') ||
+  !html.includes('id="collection-refresh"')
+) {
   throw new Error("Collection entry screen is missing from index.html");
 }
 
@@ -96,6 +100,14 @@ if (
   !css.includes(".loot-stats")
 ) {
   throw new Error("Loot box reveal animation and rarity styling are missing from styles.css");
+}
+
+if (
+  !css.includes(".inventory-rarity-group") ||
+  !css.includes(".inventory-card") ||
+  !css.includes(".inventory-stats")
+) {
+  throw new Error("Inventory grouping and gear card styles are missing from styles.css");
 }
 
 for (const rarity of ["common", "uncommon", "rare", "epic", "legendary"]) {

@@ -43,6 +43,9 @@ router = initAppRouter({
   playButton: document.querySelector("#play-button"),
   collectionButton: document.querySelector("#collection-button"),
   collectionOwner: document.querySelector("#collection-owner"),
+  collectionStatus: document.querySelector("#collection-status"),
+  collectionGroups: document.querySelector("#collection-groups"),
+  collectionRefresh: document.querySelector("#collection-refresh"),
   backButtons: document.querySelectorAll("[data-nav-route]"),
   gamePilot: document.querySelector("#game-pilot"),
 });
