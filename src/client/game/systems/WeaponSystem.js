@@ -26,9 +26,44 @@ function rotateToward(current, target, maxRadians) {
   return { x: Math.cos(nextAngle), y: Math.sin(nextAngle) };
 }
 
+function cleanNumber(value, fallback, min = 0) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > min ? number : fallback;
+}
+
+function buildLoadout(equippedLoadout = {}) {
+  return Object.fromEntries(
+    WEAPON_ORDER.map((type) => {
+      const base = DEFAULT_WEAPON_LOADOUT[type];
+      const gear = equippedLoadout?.[type];
+      const stats = gear?.stats || {};
+
+      return [
+        type,
+        {
+          ...base,
+          label: gear?.name || base.label,
+          damage: cleanNumber(stats.damage, base.damage),
+          fireRate: cleanNumber(stats.fireRate, base.fireRate),
+          speed: cleanNumber(stats.speed, base.speed),
+          lifetime: cleanNumber(stats.lifetime, base.lifetime),
+          radius: cleanNumber(stats.radius, base.radius),
+          turnRate: cleanNumber(stats.turnRate, base.turnRate),
+          chargeTime: cleanNumber(stats.chargeTime, base.chargeTime),
+          beamDuration: cleanNumber(stats.beamDuration, base.beamDuration),
+          range: cleanNumber(stats.range, base.range),
+          width: cleanNumber(stats.width, base.width),
+          color: gear?.rarityColor || base.color,
+          equippedGearId: gear?.id || null,
+        },
+      ];
+    }),
+  );
+}
+
 export class WeaponSystem {
   constructor(loadout = DEFAULT_WEAPON_LOADOUT) {
-    this.loadout = loadout;
+    this.loadout = buildLoadout(loadout);
     this.selectedType = WEAPON_TYPES.projectile;
     this.cooldowns = Object.fromEntries(WEAPON_ORDER.map((type) => [type, 0]));
     this.projectiles = [];
@@ -37,6 +72,14 @@ export class WeaponSystem {
     this.laserCharge = 0;
     this.chargeMount = null;
     this.status = this.getStatus();
+  }
+
+  setEquippedLoadout(equippedLoadout = {}) {
+    this.loadout = buildLoadout(equippedLoadout);
+    if (!this.loadout[this.selectedType]) {
+      this.selectedType = WEAPON_TYPES.projectile;
+    }
+    this.reset();
   }
 
   reset() {

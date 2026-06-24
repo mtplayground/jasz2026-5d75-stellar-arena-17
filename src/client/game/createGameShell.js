@@ -124,5 +124,8 @@ export function createGameShell({
     setPlayerProgress(player) {
       renderer.setPlayerProgress(player);
     },
+    setEquippedLoadout(equippedLoadout) {
+      renderer.setEquippedLoadout(equippedLoadout);
+    },
   };
 }

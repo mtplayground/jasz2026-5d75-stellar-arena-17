@@ -176,6 +176,10 @@ export class Renderer {
       : 0;
   }
 
+  setEquippedLoadout(equippedLoadout) {
+    this.weapons.setEquippedLoadout(equippedLoadout || {});
+  }
+
   getNextPlayableLevelNumber() {
     return getNextLevelNumber(this.highestClearedLevel);
   }

@@ -48,6 +48,7 @@ router = initAppRouter({
   collectionRefresh: document.querySelector("#collection-refresh"),
   backButtons: document.querySelectorAll("[data-nav-route]"),
   gamePilot: document.querySelector("#game-pilot"),
+  onLoadoutChange: (equippedLoadout) => shell.setEquippedLoadout(equippedLoadout),
 });
 
 initAuthPanel({
@@ -59,5 +60,8 @@ initAuthPanel({
   onSessionChange: (session) => {
     router.updateSession(session);
     shell.setPlayerProgress(session.player);
+    if (!session.player) {
+      shell.setEquippedLoadout({});
+    }
   },
 });

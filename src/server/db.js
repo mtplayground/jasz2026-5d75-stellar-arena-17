@@ -358,7 +358,85 @@ export async function listGearForPlayer(claims, db = getPool()) {
   return {
     definitions: definitions.rows,
     ownedGear: ownedGear.rows,
+    equippedLoadout: buildEquippedLoadout(ownedGear.rows),
   };
+}
+
+export async function equipGearForPlayer(claims, ownedGearId, db = getPool()) {
+  if (!db) {
+    throw new Error("DATABASE_URL is not configured");
+  }
+
+  if (!Number.isInteger(ownedGearId) || ownedGearId < 1) {
+    throw new Error("Owned gear id must be a positive integer");
+  }
+
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+    const player = await upsertPlayerFromClaims(claims, client);
+    const target = await client.query(
+      `
+        SELECT
+          pg.id,
+          gd.weapon_type AS "weaponType"
+        FROM player_gear pg
+        JOIN gear_definitions gd ON gd.id = pg.gear_definition_id
+        WHERE pg.id = $1 AND pg.player_sub = $2
+        FOR UPDATE
+      `,
+      [ownedGearId, player.sub],
+    );
+
+    if (target.rowCount !== 1) {
+      const err = new Error("Owned gear was not found for this player");
+      err.code = "OWNED_GEAR_NOT_FOUND";
+      throw err;
+    }
+
+    const weaponType = target.rows[0].weaponType;
+    await client.query(
+      `
+        UPDATE player_gear pg
+        SET equipped = FALSE
+        FROM gear_definitions gd
+        WHERE
+          pg.gear_definition_id = gd.id
+          AND pg.player_sub = $1
+          AND gd.weapon_type = $2
+          AND pg.id <> $3
+      `,
+      [player.sub, weaponType, ownedGearId],
+    );
+    await client.query(
+      `
+        UPDATE player_gear
+        SET equipped = TRUE
+        WHERE id = $1 AND player_sub = $2
+      `,
+      [ownedGearId, player.sub],
+    );
+    await client.query("COMMIT");
+
+    return listGearForPlayer(claims, db);
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+function buildEquippedLoadout(ownedGear) {
+  return ownedGear
+    .filter((gear) => gear.equipped)
+    .sort((left, right) => Number(right.rarityRank || 0) - Number(left.rarityRank || 0))
+    .reduce((loadout, gear) => {
+      if (!loadout[gear.weaponType]) {
+        loadout[gear.weaponType] = gear;
+      }
+      return loadout;
+    }, {});
 }
 
 function rollRarity() {
