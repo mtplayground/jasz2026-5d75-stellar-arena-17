@@ -27,10 +27,12 @@ function distancePointToSegment(point, start, end) {
 export class CombatSystem {
   constructor() {
     this.impacts = [];
+    this.events = [];
   }
 
   reset() {
     this.impacts = [];
+    this.events = [];
   }
 
   update(dt, { player, enemies, weapons, size }) {
@@ -131,6 +133,7 @@ export class CombatSystem {
         const changed = player.applyDamage(projectile.damage);
         if (changed) {
           this.addImpact(projectile.x, projectile.y, projectile.color, projectile.radius * 2.2);
+          this.addEvent("player-hit", projectile.x, projectile.y);
         }
       } else {
         remaining.push(projectile);
@@ -154,8 +157,10 @@ export class CombatSystem {
         const changed = player.applyDamage(damage);
         enemy.applyDamage(enemy.health);
         this.addImpact(enemy.position.x, enemy.position.y, enemy.definition.color, enemyCircle.radius * 1.7);
+        this.addEvent("explosion", enemy.position.x, enemy.position.y);
         if (changed) {
           this.addImpact(player.position.x, player.position.y, "#d9f45f", playerCircle.radius * 1.4);
+          this.addEvent("player-hit", player.position.x, player.position.y);
         }
       }
     }
@@ -179,6 +184,7 @@ export class CombatSystem {
   damageEnemy(enemy, damage, x, y, color, pixelRatio, scale = 1) {
     const destroyed = enemy.applyDamage(damage);
     this.addImpact(x, y, color, 16 * pixelRatio * scale);
+    this.addEvent("hit", x, y);
 
     if (destroyed) {
       this.addImpact(
@@ -187,6 +193,7 @@ export class CombatSystem {
         enemy.definition.color,
         enemy.definition.radius * pixelRatio * 1.7,
       );
+      this.addEvent("explosion", enemy.position.x, enemy.position.y);
     }
   }
 
@@ -199,6 +206,21 @@ export class CombatSystem {
       age: 0,
       lifetime: IMPACT_LIFETIME,
     });
+
+    if (this.impacts.length > 72) {
+      this.impacts.splice(0, this.impacts.length - 72);
+    }
+  }
+
+  addEvent(type, x, y) {
+    this.events.push({ type, x, y });
+    if (this.events.length > 48) {
+      this.events.splice(0, this.events.length - 48);
+    }
+  }
+
+  consumeEvents() {
+    return this.events.splice(0);
   }
 
   draw(ctx, pixelRatio) {
