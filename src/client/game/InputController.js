@@ -105,16 +105,7 @@ export class InputController {
   }
 
   isMovementKey(code) {
-    return [
-      "ArrowUp",
-      "ArrowDown",
-      "ArrowLeft",
-      "ArrowRight",
-      "KeyW",
-      "KeyA",
-      "KeyS",
-      "KeyD",
-    ].includes(code);
+    return ["KeyW", "KeyA", "KeyS", "KeyD"].includes(code);
   }
 
   weaponSelectionForKey(code) {
@@ -149,10 +140,10 @@ export class InputController {
       };
     }
 
-    const left = this.keys.has("ArrowLeft") || this.keys.has("KeyA");
-    const right = this.keys.has("ArrowRight") || this.keys.has("KeyD");
-    const up = this.keys.has("ArrowUp") || this.keys.has("KeyW");
-    const down = this.keys.has("ArrowDown") || this.keys.has("KeyS");
+    const left = this.keys.has("KeyA");
+    const right = this.keys.has("KeyD");
+    const up = this.keys.has("KeyW");
+    const down = this.keys.has("KeyS");
     const moveX = (right ? 1 : 0) - (left ? 1 : 0);
     const moveY = (down ? 1 : 0) - (up ? 1 : 0);
 

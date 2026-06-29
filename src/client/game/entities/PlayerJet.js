@@ -76,17 +76,7 @@ export class PlayerJet {
     }
 
     const pixelRatio = size.pixelRatio;
-    const keyboard = normalize(input.moveX, input.moveY);
-    const pointerDirection = input.pointer
-      ? normalize(input.pointer.x - this.position.x, input.pointer.y - this.position.y)
-      : { x: 0, y: 0, length: 0 };
-
-    const steering =
-      keyboard.length > 0
-        ? keyboard
-        : pointerDirection.length > BASE_RADIUS * pixelRatio * 0.45
-          ? pointerDirection
-          : { x: 0, y: 0, length: 0 };
+    const steering = normalize(input.moveX, input.moveY);
 
     if (steering.length > 0) {
       const acceleration = BASE_ACCELERATION * pixelRatio;
