@@ -136,7 +136,11 @@ export class Renderer {
     const charge = status.charge > 0 ? ` ${Math.round(status.charge * 100)}%` : "";
     this.hud.weaponStatus.textContent = `${status.label}${charge}`;
     if (this.hud.weaponDetail) {
-      this.hud.weaponDetail.textContent = `${status.damage} dmg`;
+      const damageText =
+        status.pelletCount > 1
+          ? `${status.pelletCount} x ${status.damage} dmg`
+          : `${status.damage} dmg`;
+      this.hud.weaponDetail.textContent = damageText;
     }
   }
 

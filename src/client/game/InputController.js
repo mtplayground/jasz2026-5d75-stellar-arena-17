@@ -122,6 +122,7 @@ export class InputController {
       Digit1: "projectile",
       Digit2: "missile",
       Digit3: "laser",
+      Digit4: "shotgun",
     }[code];
   }
 

@@ -39,6 +39,7 @@ export class SoundSystem {
     if (type === "shoot-projectile") this.tone(420, 0.04, 0.035, "square");
     if (type === "shoot-missile") this.tone(150, 0.1, 0.055, "sawtooth", 0.7);
     if (type === "shoot-laser") this.tone(780, 0.18, 0.06, "triangle", 1.35);
+    if (type === "shoot-shotgun") this.tone(260, 0.075, 0.06, "sawtooth", 0.95);
     if (type === "hit") this.noise(0.05, 0.045, 900);
     if (type === "player-hit") this.noise(0.08, 0.08, 240);
     if (type === "explosion") this.noise(0.18, 0.12, 130);
