@@ -2,6 +2,7 @@ export const GEAR_WEAPON_TYPES = {
   projectile: "projectile",
   missile: "missile",
   laser: "laser",
+  shotgun: "shotgun",
 };
 
 export const RARITY_TIERS = [
@@ -86,6 +87,18 @@ const BASE_GEAR = {
       width: 9,
     },
   },
+  [GEAR_WEAPON_TYPES.shotgun]: {
+    name: "Scatter Blaster",
+    stats: {
+      damage: 6,
+      pelletCount: 6,
+      spreadAngle: 0.58,
+      fireRate: 1.65,
+      speed: 760,
+      lifetime: 0.74,
+      radius: 3.2,
+    },
+  },
 };
 
 function roundStat(value) {
@@ -98,8 +111,10 @@ function scaleStats(weaponType, baseStats, multiplier) {
   for (const [key, value] of Object.entries(baseStats)) {
     if (key === "chargeTime") {
       stats[key] = roundStat(value / (1 + (multiplier - 1) * 0.45));
-    } else if (key === "beamDuration") {
+    } else if (key === "beamDuration" || key === "spreadAngle" || key === "lifetime") {
       stats[key] = value;
+    } else if (key === "pelletCount") {
+      stats[key] = Math.max(value, Math.round(value + (multiplier - 1) * 2));
     } else {
       stats[key] = roundStat(value * multiplier);
     }
@@ -111,6 +126,11 @@ function scaleStats(weaponType, baseStats, multiplier) {
 
   if (weaponType === GEAR_WEAPON_TYPES.missile) {
     stats.turnRate = roundStat(baseStats.turnRate * (1 + (multiplier - 1) * 0.4));
+  }
+
+  if (weaponType === GEAR_WEAPON_TYPES.shotgun) {
+    stats.fireRate = roundStat(baseStats.fireRate * (1 + (multiplier - 1) * 0.45));
+    stats.speed = roundStat(baseStats.speed * (1 + (multiplier - 1) * 0.35));
   }
 
   return stats;
