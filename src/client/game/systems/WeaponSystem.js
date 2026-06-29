@@ -48,6 +48,8 @@ function buildLoadout(equippedLoadout = {}) {
           speed: cleanNumber(stats.speed, base.speed),
           lifetime: cleanNumber(stats.lifetime, base.lifetime),
           radius: cleanNumber(stats.radius, base.radius),
+          pelletCount: Math.max(1, Math.round(cleanNumber(stats.pelletCount, base.pelletCount || 1, 0))),
+          spreadAngle: cleanNumber(stats.spreadAngle, base.spreadAngle || 0, -1),
           turnRate: cleanNumber(stats.turnRate, base.turnRate),
           chargeTime: cleanNumber(stats.chargeTime, base.chargeTime),
           beamDuration: cleanNumber(stats.beamDuration, base.beamDuration),
@@ -115,6 +117,10 @@ export class WeaponSystem {
 
       if (selected.type === WEAPON_TYPES.missile) {
         this.fireMissile(selected, mount, aimDirection, input.pointer, pixelRatio);
+      }
+
+      if (selected.type === WEAPON_TYPES.shotgun) {
+        this.fireShotgun(selected, mount, aimDirection, pixelRatio);
       }
 
       this.cooldowns[selected.type] = 1 / selected.fireRate;
@@ -186,6 +192,37 @@ export class WeaponSystem {
     });
     this.addMuzzleFlash(mount, definition.color, 18 * pixelRatio);
     this.addEvent("shoot-missile", mount.x, mount.y);
+  }
+
+  fireShotgun(definition, mount, direction, pixelRatio) {
+    const speed = definition.speed * pixelRatio;
+    const radius = definition.radius * pixelRatio;
+    const pelletCount = Math.max(1, Math.round(definition.pelletCount || 1));
+    const spreadAngle = Math.max(0, definition.spreadAngle || 0);
+    const startAngle = Math.atan2(direction.y, direction.x) - spreadAngle / 2;
+    const step = pelletCount > 1 ? spreadAngle / (pelletCount - 1) : 0;
+
+    for (let index = 0; index < pelletCount; index += 1) {
+      const pelletAngle = startAngle + step * index;
+      const pelletDirection = {
+        x: Math.cos(pelletAngle),
+        y: Math.sin(pelletAngle),
+      };
+      this.projectiles.push({
+        x: mount.x,
+        y: mount.y,
+        vx: pelletDirection.x * speed,
+        vy: pelletDirection.y * speed,
+        radius,
+        color: definition.color,
+        damage: definition.damage,
+        age: 0,
+        lifetime: definition.lifetime,
+      });
+    }
+
+    this.addMuzzleFlash(mount, definition.color, 20 * pixelRatio);
+    this.addEvent("shoot-shotgun", mount.x, mount.y);
   }
 
   updateLaser(dt, definition, input, mount, direction, pixelRatio) {
@@ -426,6 +463,7 @@ export class WeaponSystem {
       type: selected.type,
       label: selected.label,
       damage: selected.damage,
+      pelletCount: selected.pelletCount || 1,
       cooldown: this.cooldowns[selected.type],
       charge,
       activeCount: this.projectiles.length + this.missiles.length + this.beams.length,
