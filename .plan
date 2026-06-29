@@ -1,57 +1,43 @@
-Architecture plan for issues #1-#16
-
-Product naming
-- The GitHub issue text does not define a standalone product brand/name, so implementation should use neutral game labels unless a later issue explicitly supplies copy.
+Architecture plan for issues #33-#36
 
 Project shape
-- Build a browser-based game with a full-window canvas render surface and a small backend for accounts, persistence, gear drops, and progression.
-- Keep client gameplay deterministic and state-driven: fixed timestep update, render interpolation where useful, responsive canvas scaling, and pause/resume handling.
-- Keep server-authoritative account, inventory, gear grants, and highest-level progress. The client may simulate combat locally, but level-complete reward grants must be validated through backend endpoints.
+- Stack: Node.js HTTP server serving a static browser game shell plus JSON APIs; browser game modules are plain ES modules under src/client/game; shared server/client gear data is in src/shared/gearCatalog.js; tests are Node scripts under scripts/.
+- Persistent account/inventory data remains in PostgreSQL through src/server/db.js. No new storage service or email integration is required for these issues.
 
-Suggested file organization
-- `src/client/`
-  - `app`: top-level routes/screens and session bootstrap.
-  - `screens`: sign-in, main menu, game, results, loot reveal, collection, equip/loadout.
-  - `game`: loop, input, renderer, camera/viewport, assets, HUD.
-  - `game/systems`: movement, weapons, enemies, spawning/waves, collision, damage, effects, audio.
-  - `game/entities`: player, enemy, projectile, missile, laser, pickup/effects models.
-  - `api`: typed client calls for auth, progress, inventory, rewards, loadout.
-- `src/server/`
-  - `routes`: auth, player profile/progress, gear definitions, inventory, loadout, level-clear reward.
-  - `services`: password hashing/token handling, loot roll logic, progression validation.
-  - `db`: migrations/schema and query helpers.
-- `src/shared/`
-  - Types shared between client and server: player profile, auth response, level result, gear rarity, weapon type, gear definition, owned gear, loadout, level/wave definitions, combat stats.
-- `tests/`
-  - Unit tests for data tables and drop rates.
-  - Integration/API tests for auth, inventory grants, progress, and loadout persistence.
-  - End-to-end playthrough test for sign in -> play -> clear -> loot -> collection -> equip -> gameplay effect.
+Module structure and file organization
+- Weapon gameplay:
+  - src/client/game/data/weaponDefinitions.js remains the canonical client-side weapon type/order/default stat registry. Issue #33 adds WEAPON_TYPES.shotgun, appends it to WEAPON_ORDER, and defines base shotgun stats such as pelletCount, spreadAngle, per-pellet damage, fireRate, speed, radius, lifetime, and color.
+  - src/client/game/systems/WeaponSystem.js remains responsible for selection, cooldowns, projectile creation, events, and equipped loadout stat overrides. Issue #33 adds fireShotgun and update logic for shotgun selection/fire; issue #34 extends buildLoadout so shotgun gear stats override the default shotgun stats.
+  - src/client/game/InputController.js owns keyboard bindings. Issue #33 maps Digit4 to shotgun. Issue #35 removes arrow keys from movement input and keeps only WASD in isMovementKey/getFlightInput while pointer state continues to flow to getWeaponInput for aiming.
+  - src/client/game/entities/PlayerJet.js owns movement/facing. Issue #35 removes pointerDirection fallback from PlayerJet.update so pointer movement cannot steer or rotate the jet when no WASD input is active; facing should derive from keyboard steering or velocity only.
+  - src/client/game/Renderer.js and styles should only need small HUD/status updates if shotgun needs display labels, icons, colors, or feedback events.
 
-Issue dependency map
-- #1 is the root for the game shell, canvas, game loop, and app structure.
-- #2 depends on #1 and unlocks authenticated player state and persistence.
-- #3 depends on #1/#2 and provides the menu, routing, and play entry point.
-- #4 depends on #1 and introduces player movement.
-- #5 and #6 depend on player/game primitives and introduce weapons and enemies.
-- #7 depends on movement, weapons, and enemies, then adds health, collision, damage, destruction, lives, game over, and HUD health.
-- #8 depends on enemies/combat systems and adds data-driven levels/waves and clear conditions.
-- #9 depends on menu/auth persistence and adds victory/defeat, level advancement, and highest-cleared tracking.
-- #10 depends on persistence and defines rarity tiers, gear definitions, owned gear, and stat ranges.
-- #11 depends on gear/progress and grants server-authoritative loot after level clear.
-- #12 depends on reward data and routing to show the loot reveal.
-- #13 depends on saved inventory and app routing to show grouped/sorted owned gear.
-- #14 depends on gear inventory and weapons to persist loadouts and apply equipped stats in combat.
-- #15 depends on mature combat/HUD flows and adds final sound, effects, feedback, and performance polish.
-- #16 depends on the complete loop and verifies the full player journey end to end.
+- Gear/inventory:
+  - src/shared/gearCatalog.js remains the single source of truth for gear weapon types, rarity tiers, drop weights, base gear stats, and generated gear definitions. Issue #34 adds GEAR_WEAPON_TYPES.shotgun and a BASE_GEAR shotgun entry that scales across Common/Uncommon/Rare/Epic/Legendary using existing rarity tiers.
+  - src/server/db.js uses gear definitions from the shared catalog for seeding, loot drops, owned gear, and equipped loadouts. Because gear_definitions.weapon_type has a CHECK constraint, issue #34 must add a migration to allow shotgun before seeding shotgun definitions in deployed Postgres.
+  - src/client/appRouter.js already groups owned gear, calls /api/gear and /api/gear/equip, and passes equippedLoadout into the game shell. With shotgun present in the catalog/loadout, existing inventory rendering should mostly work; verify labels/stats render cleanly.
+
+- Tests and verification:
+  - scripts/verify-game-shell.js should be updated in issue #36 to assert shotgun exists in weapon definitions, gear catalog, input Digit4 switching, WeaponSystem.fireShotgun, HUD/status wiring, and WASD-only movement behavior references.
+  - scripts/e2e-playthrough.js should be extended in issue #36 to exercise a deterministic shotgun grant/equip/loadout path and to instantiate PlayerJet/InputController-relevant logic proving mouse pointer does not affect steering while WASD does.
+
+Issue dependencies and sequencing
+1. #33 Add shotgun spread-shot weapon and switching
+   - First because it introduces the runtime weapon type and client combat behavior.
+   - Touches weaponDefinitions.js, WeaponSystem.js, InputController.js, likely HUD/renderer labels.
+2. #34 Let shotgun gear drop, be collected, and be equipped
+   - Depends on #33's shotgun WEAPON_TYPES/loadout shape.
+   - Touches gearCatalog.js, db schema/migrations for weapon_type CHECK constraint, and possibly tests/fake DB assumptions.
+3. #35 Lock movement to WASD and mouse to aim only
+   - Independent of gear catalog but should be implemented after understanding #33 because pointer must still aim all weapons including shotgun.
+   - Touches InputController.js and PlayerJet.js.
+4. #36 Update tests for shotgun and WASD-only movement
+   - Last, because it should cover final behavior from #33-#35 without requiring test rewrites in every feature PR.
 
 Key design decisions
-- Use shared typed contracts for every client/server boundary so later issues can add fields without duplicating shapes.
-- Store all durable player data on the server: player account, highest cleared level, inventory, owned gear, and equipped loadout.
-- Model gear definitions separately from owned gear instances. Definitions describe weapon type, rarity, and stat ranges; owned gear stores rolled stats and ownership.
-- Represent rarity as a fixed ordered enum: Common, Uncommon, Rare, Epic, Legendary, mapped to white, green, blue, purple, and orange presentation tokens.
-- Keep weapons data-driven from a `WeaponStats`/gear stat object so issue #5 can ship default weapons and issue #14 can swap in equipped gear without rewriting combat.
-- Keep level and wave configuration in data files or structured constants. Runtime systems should consume configs, not hard-code spawn sequences.
-- Keep render, simulation, input, and persistence concerns separated. Gameplay systems should not call backend APIs directly; screen/controller code should submit results and hydrate saved data.
-- Treat level-clear loot grants as server-authoritative. The client sends the level result, the server verifies allowed progression state, rolls the drop, persists it, and returns the granted item.
-- Add accessibility-minded UI structure outside the canvas for auth, menus, collection, equip, and results while keeping in-combat HUD readable over the render surface.
-- Plan test coverage in layers: focused unit tests for pure loot/gear/level logic, API tests for persistence, and one end-to-end test for the final integrated loop.
+- Keep weapon and gear type strings centralized in existing registries; avoid ad-hoc "shotgun" literals except where mapping keyboard codes or checking known type-specific behavior.
+- Shotgun should reuse the existing projectile update path by creating multiple pellet projectiles with angular offsets, so collision/damage logic does not need a separate projectile collection.
+- Add shotgun-specific numeric fields through the generic loadout stat sanitizer rather than a parallel schema; preserve backwards compatibility with existing projectile/missile/laser gear rows.
+- Database migrations must be additive/idempotent and use PostgreSQL only. The gear definition seed path should update existing definitions and insert shotgun definitions after the CHECK constraint accepts them.
+- Mouse pointer remains an aiming input for WeaponSystem.getAimDirection only; PlayerJet movement/facing should not read pointer after #35.
+- Tests should verify behavior through actual modules, not only strings, where practical. Static checks can ensure wiring exists; e2e should prove gear stats affect loadout and movement is WASD-only.
