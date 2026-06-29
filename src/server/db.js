@@ -48,7 +48,7 @@ export async function ensureSchema(db = getPool()) {
     CREATE TABLE IF NOT EXISTS gear_definitions (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
-      weapon_type TEXT NOT NULL CHECK (weapon_type IN ('projectile', 'missile', 'laser')),
+      weapon_type TEXT NOT NULL CONSTRAINT gear_definitions_weapon_type_check CHECK (weapon_type IN ('projectile', 'missile', 'laser', 'shotgun')),
       rarity TEXT NOT NULL CHECK (rarity IN ('common', 'uncommon', 'rare', 'epic', 'legendary')),
       rarity_label TEXT NOT NULL,
       rarity_color_name TEXT NOT NULL,
@@ -58,6 +58,17 @@ export async function ensureSchema(db = getPool()) {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
+  `);
+
+  await db.query(`
+    ALTER TABLE gear_definitions
+    DROP CONSTRAINT IF EXISTS gear_definitions_weapon_type_check
+  `);
+
+  await db.query(`
+    ALTER TABLE gear_definitions
+    ADD CONSTRAINT gear_definitions_weapon_type_check
+    CHECK (weapon_type IN ('projectile', 'missile', 'laser', 'shotgun'))
   `);
 
   await db.query(`
