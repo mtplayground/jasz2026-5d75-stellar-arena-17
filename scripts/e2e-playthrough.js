@@ -9,6 +9,7 @@ import {
   upsertPlayerFromClaims,
 } from "../src/server/db.js";
 import { WeaponSystem } from "../src/client/game/systems/WeaponSystem.js";
+import { PlayerJet } from "../src/client/game/entities/PlayerJet.js";
 
 const projectRoot = resolve(import.meta.dirname, "..");
 
@@ -39,6 +40,7 @@ function createFakePostgres() {
     playerGear: [],
     playerLevelRewards: new Map(),
     nextOwnedGearId: 1,
+    forcedWeaponType: null,
   };
 
   const query = async (sql, params = []) => {
@@ -118,7 +120,11 @@ function createFakePostgres() {
     if (text.startsWith("select id from gear_definitions where rarity = $1")) {
       const rarity = params[0];
       const rows = [...state.gearDefinitions.values()]
-        .filter((definition) => definition.rarity === rarity)
+        .filter(
+          (definition) =>
+            definition.rarity === rarity &&
+            (!state.forcedWeaponType || definition.weaponType === state.forcedWeaponType),
+        )
         .sort((left, right) => left.id.localeCompare(right.id))
         .map((definition) => ({ id: definition.id }));
       return createResult(rows);
@@ -283,6 +289,77 @@ function assertLoadoutUsesGear(weaponSystem, gear) {
   }
 }
 
+
+async function assertShotgunDropAndEquipFlow(db, claims) {
+  const shotgunDefinitions = [...db.state.gearDefinitions.values()].filter(
+    (definition) => definition.weaponType === "shotgun",
+  );
+  assert.equal(shotgunDefinitions.length, 5, "shotgun gear should exist across all five rarity tiers");
+  for (const definition of shotgunDefinitions) {
+    assert.equal(typeof definition.stats.damage, "number", "shotgun gear should scale damage");
+    assert.equal(typeof definition.stats.pelletCount, "number", "shotgun gear should include pellet count");
+    assert.equal(typeof definition.stats.spreadAngle, "number", "shotgun gear should include spread angle");
+    assert.equal(typeof definition.stats.fireRate, "number", "shotgun gear should include fire rate");
+    assert.equal(typeof definition.stats.speed, "number", "shotgun gear should include projectile speed");
+  }
+
+  db.state.forcedWeaponType = "shotgun";
+  const shotgunClear = await recordLevelClearAndGrantDrop(claims, 2, db);
+  db.state.forcedWeaponType = null;
+
+  assert.equal(shotgunClear.alreadyGranted, false, "forced second clear should grant a new shotgun drop");
+  assert.equal(shotgunClear.drop.weaponType, "shotgun", "server-authoritative drop should be shotgun gear");
+  assert.ok(shotgunClear.drop.stats.pelletCount >= 6, "shotgun drop should carry pellet-count stats");
+  assert.ok(shotgunClear.drop.stats.spreadAngle > 0, "shotgun drop should carry spread-angle stats");
+
+  const equipped = await equipGearForPlayer(claims, shotgunClear.drop.id, db);
+  const equippedShotgun = equipped.ownedGear.find((gear) => gear.id === shotgunClear.drop.id);
+  assert.equal(equippedShotgun?.equipped, true, "shotgun gear should persist as equipped");
+  assert.equal(
+    equipped.equippedLoadout.shotgun?.id,
+    shotgunClear.drop.id,
+    "saved loadout should expose equipped shotgun gear by weapon type",
+  );
+
+  const weaponSystem = new WeaponSystem();
+  weaponSystem.setEquippedLoadout(equipped.equippedLoadout);
+  assertLoadoutUsesGear(weaponSystem, equippedShotgun);
+  assert.equal(
+    weaponSystem.loadout.shotgun.pelletCount,
+    equippedShotgun.stats.pelletCount,
+    "equipped shotgun pellet count should feed into gameplay loadout",
+  );
+  assert.equal(
+    weaponSystem.loadout.shotgun.spreadAngle,
+    equippedShotgun.stats.spreadAngle,
+    "equipped shotgun spread angle should feed into gameplay loadout",
+  );
+}
+
+function assertWasdMovementIsDecoupledFromPointerAim() {
+  const player = new PlayerJet();
+  const size = { width: 1000, height: 800, pixelRatio: 1 };
+
+  player.update(1 / 60, { moveX: 0, moveY: 0, pointer: null }, size);
+  const start = { x: player.position.x, y: player.position.y, angle: player.angle };
+
+  player.update(0.25, { moveX: 0, moveY: 0, pointer: { x: 100, y: 100 } }, size);
+  assert.equal(player.position.x, start.x, "mouse pointer alone should not move the player horizontally");
+  assert.equal(player.position.y, start.y, "mouse pointer alone should not move the player vertically");
+  assert.equal(player.velocity.x, 0, "mouse pointer alone should not create horizontal velocity");
+  assert.equal(player.velocity.y, 0, "mouse pointer alone should not create vertical velocity");
+  assert.equal(player.angle, start.angle, "mouse pointer alone should not steer or face the player jet");
+
+  player.update(0.1, { moveX: 1, moveY: 0, pointer: { x: 0, y: start.y } }, size);
+  assert.ok(player.position.x > start.x, "D/right WASD input should move the player right");
+  assert.ok(player.velocity.x > 0, "D/right WASD input should create rightward velocity");
+  assert.ok(player.angle > start.angle, "player facing should follow WASD movement, not the opposite mouse pointer");
+
+  const weaponSystem = new WeaponSystem();
+  const aimDirection = weaponSystem.getAimDirection(player, { x: 0, y: player.position.y }, size.pixelRatio);
+  assert.ok(aimDirection.x < -0.9, "weapon aim should still point toward the mouse pointer");
+}
+
 async function assertClientFlowWiring() {
   const [appRouter, renderer, indexHtml] = await Promise.all([
     readFile(resolve(projectRoot, "src/client/appRouter.js"), "utf8"),
@@ -345,6 +422,8 @@ async function run() {
   weaponSystem.setEquippedLoadout(equipped.equippedLoadout);
   assertLoadoutUsesGear(weaponSystem, equippedDrop);
 
+  await assertShotgunDropAndEquipFlow(db, claims);
+  assertWasdMovementIsDecoupledFromPointerAim();
   await assertClientFlowWiring();
 
   console.log("End-to-end playthrough verification passed");

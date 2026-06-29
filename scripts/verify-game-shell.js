@@ -46,6 +46,12 @@ const html = await readFile(resolve(projectRoot, "src/client/index.html"), "utf8
 const css = await readFile(resolve(projectRoot, "src/client/styles.css"), "utf8");
 const server = await readFile(resolve(projectRoot, "server.js"), "utf8");
 const appRouter = await readFile(resolve(projectRoot, "src/client/appRouter.js"), "utf8");
+const inputController = await readFile(resolve(projectRoot, "src/client/game/InputController.js"), "utf8");
+const renderer = await readFile(resolve(projectRoot, "src/client/game/Renderer.js"), "utf8");
+const weaponDefinitions = await readFile(
+  resolve(projectRoot, "src/client/game/data/weaponDefinitions.js"),
+  "utf8",
+);
 const weaponSystem = await readFile(
   resolve(projectRoot, "src/client/game/systems/WeaponSystem.js"),
   "utf8",
@@ -130,6 +136,21 @@ if (
   throw new Error("Inventory grouping and gear card styles are missing from styles.css");
 }
 
+
+if (
+  !weaponDefinitions.includes('shotgun: "shotgun"') ||
+  !weaponDefinitions.includes("WEAPON_TYPES.shotgun") ||
+  !weaponDefinitions.includes("pelletCount") ||
+  !weaponDefinitions.includes("spreadAngle") ||
+  !weaponSystem.includes("fireShotgun") ||
+  !weaponSystem.includes('this.addEvent("shoot-shotgun"') ||
+  !inputController.includes('Digit4: "shotgun"') ||
+  !renderer.includes("pelletCount > 1") ||
+  !renderer.includes('`${status.pelletCount} x ${status.damage} dmg`')
+) {
+  throw new Error("Shotgun weapon definition, firing, Digit4 switching, or HUD indicator wiring is missing");
+}
+
 if (
   !server.includes('pathname === "/api/gear/equip"') ||
   !appRouter.includes('fetch("/api/gear/equip"') ||
@@ -156,7 +177,7 @@ for (const rarity of ["common", "uncommon", "rare", "epic", "legendary"]) {
   }
 }
 
-for (const weaponType of ["projectile", "missile", "laser"]) {
+for (const weaponType of ["projectile", "missile", "laser", "shotgun"]) {
   if (!gearCatalog.includes(`${weaponType}: "${weaponType}"`)) {
     throw new Error(`Gear weapon type ${weaponType} is missing from gearCatalog.js`);
   }
