@@ -1,5 +1,7 @@
 target/
 node_modules/
+dist/
+.env.production
 .gh_token
 .database_url
 .task_id
@@ -10,3 +12,8 @@ node_modules/
 .pipeline-state.json
 .gitkeep
 .progress
+.deploy_url
+.storage_decision
+.authemail_decision
+verify-ui.cjs
+verify-screenshot.png

@@ -1,43 +1,38 @@
-Architecture plan for issues #33-#36
+Architecture plan for issues #41-#44
 
-Project shape
-- Stack: Node.js HTTP server serving a static browser game shell plus JSON APIs; browser game modules are plain ES modules under src/client/game; shared server/client gear data is in src/shared/gearCatalog.js; tests are Node scripts under scripts/.
-- Persistent account/inventory data remains in PostgreSQL through src/server/db.js. No new storage service or email integration is required for these issues.
+Current structure
+- Runtime is a Node HTTP server (server.js) serving a static browser game from dist/ or src/client and JSON APIs backed by PostgreSQL in src/server/db.js.
+- Client gameplay code is organized under src/client/game:
+  - data/weaponDefinitions.js owns base weapon constants and default loadout stats.
+  - systems/WeaponSystem.js owns weapon selection, cooldowns, projectile/missile/beam spawning, laser timing, missile steering, and draw/update lifecycle for weapon entities.
+  - systems/CombatSystem.js owns collision checks, enemy damage application, impact effects, and combat events.
+  - Renderer.js wires input, player/enemy/weapon/combat systems together and renders HUD/feedback.
+- Gear stats are shared in src/shared/gearCatalog.js and persisted/listed/equipped via src/server/db.js. WeaponSystem.buildLoadout already maps equipped gear stats into active weapon definitions.
+- Verification is split between scripts/verify-game-shell.js for static wiring checks and scripts/e2e-playthrough.js for deterministic gameplay/data-flow assertions with a fake PostgreSQL adapter.
 
-Module structure and file organization
-- Weapon gameplay:
-  - src/client/game/data/weaponDefinitions.js remains the canonical client-side weapon type/order/default stat registry. Issue #33 adds WEAPON_TYPES.shotgun, appends it to WEAPON_ORDER, and defines base shotgun stats such as pelletCount, spreadAngle, per-pellet damage, fireRate, speed, radius, lifetime, and color.
-  - src/client/game/systems/WeaponSystem.js remains responsible for selection, cooldowns, projectile creation, events, and equipped loadout stat overrides. Issue #33 adds fireShotgun and update logic for shotgun selection/fire; issue #34 extends buildLoadout so shotgun gear stats override the default shotgun stats.
-  - src/client/game/InputController.js owns keyboard bindings. Issue #33 maps Digit4 to shotgun. Issue #35 removes arrow keys from movement input and keeps only WASD in isMovementKey/getFlightInput while pointer state continues to flow to getWeaponInput for aiming.
-  - src/client/game/entities/PlayerJet.js owns movement/facing. Issue #35 removes pointerDirection fallback from PlayerJet.update so pointer movement cannot steer or rotate the jet when no WASD input is active; facing should derive from keyboard steering or velocity only.
-  - src/client/game/Renderer.js and styles should only need small HUD/status updates if shotgun needs display labels, icons, colors, or feedback events.
+Issue dependencies and implementation sequence
+1. #41 Make laser fire instantly instead of charging
+   - Update src/client/game/data/weaponDefinitions.js and src/client/game/systems/WeaponSystem.js so laser fire is immediate on fire input when off cooldown.
+   - Remove or neutralize charge-only state paths without breaking HUD status. Beam creation should still use aim direction, range, width, damage, lifetime, cooldown, muzzle flash, and shoot-laser event.
+   - Renderer/HUD should no longer imply a charging mechanic; keep weapon status useful.
 
-- Gear/inventory:
-  - src/shared/gearCatalog.js remains the single source of truth for gear weapon types, rarity tiers, drop weights, base gear stats, and generated gear definitions. Issue #34 adds GEAR_WEAPON_TYPES.shotgun and a BASE_GEAR shotgun entry that scales across Common/Uncommon/Rare/Epic/Legendary using existing rarity tiers.
-  - src/server/db.js uses gear definitions from the shared catalog for seeding, loot drops, owned gear, and equipped loadouts. Because gear_definitions.weapon_type has a CHECK constraint, issue #34 must add a migration to allow shotgun before seeding shotgun definitions in deployed Postgres.
-  - src/client/appRouter.js already groups owned gear, calls /api/gear and /api/gear/equip, and passes equippedLoadout into the game shell. With shotgun present in the catalog/loadout, existing inventory rendering should mostly work; verify labels/stats render cleanly.
+2. #42 Make missiles explode when they get near an enemy
+   - Add missile proximity/explosion semantics primarily in src/client/game/systems/CombatSystem.js, with any needed missile stat fields coming from WeaponSystem missile entities.
+   - Prefer a reusable explosion radius field on missile definitions/entities and area damage logic that damages enemies inside the blast radius when a missile collides or gets within proximity of any enemy.
+   - Preserve existing direct-hit behavior but make explosion effects/events explicit so sound/visual feedback remains consistent.
 
-- Tests and verification:
-  - scripts/verify-game-shell.js should be updated in issue #36 to assert shotgun exists in weapon definitions, gear catalog, input Digit4 switching, WeaponSystem.fireShotgun, HUD/status wiring, and WASD-only movement behavior references.
-  - scripts/e2e-playthrough.js should be extended in issue #36 to exercise a deterministic shotgun grant/equip/loadout path and to instantiate PlayerJet/InputController-relevant logic proving mouse pointer does not affect steering while WASD does.
+3. #43 Scale the new laser and missile stats with gear rarity
+   - Update src/shared/gearCatalog.js scaling rules for missile explosion/proximity stats and instant-laser stats.
+   - Ensure src/client/game/systems/WeaponSystem.js buildLoadout accepts the new gear stat fields and applies them to missile/laser combat behavior.
+   - Keep PostgreSQL schema stable if stats remain JSONB; no migration should be needed unless a new constrained weapon type or table column is introduced.
 
-Issue dependencies and sequencing
-1. #33 Add shotgun spread-shot weapon and switching
-   - First because it introduces the runtime weapon type and client combat behavior.
-   - Touches weaponDefinitions.js, WeaponSystem.js, InputController.js, likely HUD/renderer labels.
-2. #34 Let shotgun gear drop, be collected, and be equipped
-   - Depends on #33's shotgun WEAPON_TYPES/loadout shape.
-   - Touches gearCatalog.js, db schema/migrations for weapon_type CHECK constraint, and possibly tests/fake DB assumptions.
-3. #35 Lock movement to WASD and mouse to aim only
-   - Independent of gear catalog but should be implemented after understanding #33 because pointer must still aim all weapons including shotgun.
-   - Touches InputController.js and PlayerJet.js.
-4. #36 Update tests for shotgun and WASD-only movement
-   - Last, because it should cover final behavior from #33-#35 without requiring test rewrites in every feature PR.
+4. #44 Update tests for instant laser and exploding missiles
+   - Extend scripts/verify-game-shell.js to assert instant-laser wiring, no charge dependency, missile explosion/proximity strings, and rarity-scaled stat names.
+   - Extend scripts/e2e-playthrough.js with deterministic unit-style gameplay checks: laser fires a beam immediately from fire input, missile proximity/explosion damages enemies within radius, and rarity/equipped gear stats alter live WeaponSystem values.
 
 Key design decisions
-- Keep weapon and gear type strings centralized in existing registries; avoid ad-hoc "shotgun" literals except where mapping keyboard codes or checking known type-specific behavior.
-- Shotgun should reuse the existing projectile update path by creating multiple pellet projectiles with angular offsets, so collision/damage logic does not need a separate projectile collection.
-- Add shotgun-specific numeric fields through the generic loadout stat sanitizer rather than a parallel schema; preserve backwards compatibility with existing projectile/missile/laser gear rows.
-- Database migrations must be additive/idempotent and use PostgreSQL only. The gear definition seed path should update existing definitions and insert shotgun definitions after the CHECK constraint accepts them.
-- Mouse pointer remains an aiming input for WeaponSystem.getAimDirection only; PlayerJet movement/facing should not read pointer after #35.
-- Tests should verify behavior through actual modules, not only strings, where practical. Static checks can ensure wiring exists; e2e should prove gear stats affect loadout and movement is WASD-only.
+- Keep weapon behavior server-independent; the browser game loop remains authoritative for combat simulation while persistent account state stays in PostgreSQL.
+- Store new gear stats as JSONB in existing gear definitions so equipped loadout plumbing remains backward-compatible.
+- Add stats in a data-first way: define defaults in weaponDefinitions.js, scale in gearCatalog.js, pass through buildLoadout, then consume in WeaponSystem/CombatSystem.
+- Avoid broad rewrites. Each issue should modify only the files needed for that behavior and leave auth, account persistence, loot, and inventory APIs intact.
+- Tests should be deterministic and avoid relying on random drops; use fake DB controls or direct system setup where needed.
