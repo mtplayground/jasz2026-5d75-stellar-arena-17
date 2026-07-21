@@ -80,9 +80,9 @@ export class CombatSystem {
     const remaining = [];
 
     for (const missile of weapons.missiles) {
-      const hit = this.findProjectileHit(missile, enemies.enemies, pixelRatio);
-      if (hit) {
-        this.damageEnemy(hit, missile.damage, missile.x, missile.y, missile.color, pixelRatio, 1.35);
+      const trigger = this.findMissileProximityTrigger(missile, enemies.enemies, pixelRatio);
+      if (trigger) {
+        this.detonateMissile(missile, enemies.enemies, pixelRatio);
       } else {
         remaining.push(missile);
       }
@@ -179,6 +179,66 @@ export class CombatSystem {
       }
       return circlesOverlap(projectileCircle, enemy.getCollisionCircle(pixelRatio));
     });
+  }
+
+  findMissileProximityTrigger(missile, enemies, pixelRatio) {
+    let nearest = null;
+    let nearestDistance = Infinity;
+    const proximityRadius = Math.max(missile.proximityRadius || 0, missile.radius || 0);
+
+    for (const enemy of enemies) {
+      if (enemy.isDestroyed()) {
+        continue;
+      }
+
+      const enemyCircle = enemy.getCollisionCircle(pixelRatio);
+      const centerDistance = Math.hypot(missile.x - enemyCircle.x, missile.y - enemyCircle.y);
+      const edgeDistance = Math.max(0, centerDistance - enemyCircle.radius);
+      if (edgeDistance <= proximityRadius && edgeDistance < nearestDistance) {
+        nearest = enemy;
+        nearestDistance = edgeDistance;
+      }
+    }
+
+    return nearest;
+  }
+
+  detonateMissile(missile, enemies, pixelRatio) {
+    const blastRadius = Math.max(missile.blastRadius || missile.radius * 2.5, missile.radius);
+    let damagedAny = false;
+
+    this.addImpact(missile.x, missile.y, missile.color, blastRadius * 0.72);
+    this.addEvent("explosion", missile.x, missile.y);
+
+    for (const enemy of enemies) {
+      if (enemy.isDestroyed()) {
+        continue;
+      }
+
+      const enemyCircle = enemy.getCollisionCircle(pixelRatio);
+      const distance = Math.hypot(missile.x - enemyCircle.x, missile.y - enemyCircle.y);
+      const edgeDistance = Math.max(0, distance - enemyCircle.radius);
+      if (edgeDistance > blastRadius) {
+        continue;
+      }
+
+      const falloff = 1 - edgeDistance / blastRadius;
+      const damageMultiplier = 0.45 + falloff * 0.55;
+      this.damageEnemy(
+        enemy,
+        Math.max(1, Math.round(missile.damage * damageMultiplier)),
+        enemyCircle.x,
+        enemyCircle.y,
+        missile.color,
+        pixelRatio,
+        1.12,
+      );
+      damagedAny = true;
+    }
+
+    if (!damagedAny) {
+      this.addEvent("hit", missile.x, missile.y);
+    }
   }
 
   damageEnemy(enemy, damage, x, y, color, pixelRatio, scale = 1) {
