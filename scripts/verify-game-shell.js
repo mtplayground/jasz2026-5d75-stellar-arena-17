@@ -168,6 +168,48 @@ if (
   throw new Error("Sound effects, feedback events, or HUD meter polish is missing");
 }
 
+if (
+  weaponSystem.includes("laserCharge") ||
+  weaponSystem.includes("drawLaserCharge") ||
+  weaponSystem.includes("fireReleased &&") ||
+  weaponDefinitions.includes("chargeTime")
+) {
+  throw new Error("Laser must fire instantly without charge accumulation, release trigger, or charge visuals");
+}
+
+if (
+  !weaponSystem.includes("updateLaser(selected, input") ||
+  !weaponSystem.includes("!input.fireHeld") ||
+  !weaponSystem.includes('this.addEvent("shoot-laser"') ||
+  !weaponSystem.includes("this.cooldowns[definition.type] = 1 / definition.fireRate")
+) {
+  throw new Error("Instant laser fire-held cooldown behavior is missing from WeaponSystem.js");
+}
+
+if (
+  !weaponDefinitions.includes("proximityRadius") ||
+  !weaponDefinitions.includes("blastRadius") ||
+  !weaponSystem.includes("proximityRadius: definition.proximityRadius * pixelRatio") ||
+  !weaponSystem.includes("blastRadius: definition.blastRadius * pixelRatio") ||
+  !combatSystem.includes("findMissileProximityTrigger") ||
+  !combatSystem.includes("detonateMissile") ||
+  !combatSystem.includes('this.addEvent("explosion", missile.x, missile.y)')
+) {
+  throw new Error("Missile proximity/blast detonation wiring is missing");
+}
+
+if (
+  gearCatalog.includes("chargeTime") ||
+  !gearCatalog.includes("proximityRadius") ||
+  !gearCatalog.includes("blastRadius") ||
+  !appRouter.includes("shouldDisplayStat") ||
+  !appRouter.includes('"proximityRadius"') ||
+  !renderer.includes("shouldDisplayStat") ||
+  !renderer.includes('"blastRadius"')
+) {
+  throw new Error("Gear stat catalog or stat display formatting is not aligned with instant laser and blast missiles");
+}
+
 for (const rarity of ["common", "uncommon", "rare", "epic", "legendary"]) {
   if (!gearCatalog.includes(`id: "${rarity}"`)) {
     throw new Error(`Gear rarity ${rarity} is missing from gearCatalog.js`);
