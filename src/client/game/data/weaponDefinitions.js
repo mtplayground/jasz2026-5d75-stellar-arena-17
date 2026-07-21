@@ -37,12 +37,11 @@ export const DEFAULT_WEAPON_LOADOUT = {
   [WEAPON_TYPES.laser]: {
     type: WEAPON_TYPES.laser,
     label: "Laser",
-    damage: 42,
-    fireRate: 0.75,
-    chargeTime: 0.9,
-    beamDuration: 0.18,
+    damage: 26,
+    fireRate: 1.15,
+    beamDuration: 0.16,
     range: 920,
-    width: 9,
+    width: 8,
     color: "#72d8ff",
   },
   [WEAPON_TYPES.shotgun]: {
