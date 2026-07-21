@@ -74,17 +74,18 @@ const BASE_GEAR = {
       speed: 420,
       turnRate: 5.8,
       radius: 6,
+      proximityRadius: 34,
+      blastRadius: 72,
     },
   },
   [GEAR_WEAPON_TYPES.laser]: {
     name: "Lance Emitter",
     stats: {
-      damage: 42,
-      fireRate: 0.75,
-      chargeTime: 0.9,
-      beamDuration: 0.18,
+      damage: 26,
+      fireRate: 1.15,
+      beamDuration: 0.16,
       range: 920,
-      width: 9,
+      width: 8,
     },
   },
   [GEAR_WEAPON_TYPES.shotgun]: {
@@ -109,9 +110,7 @@ function scaleStats(weaponType, baseStats, multiplier) {
   const stats = {};
 
   for (const [key, value] of Object.entries(baseStats)) {
-    if (key === "chargeTime") {
-      stats[key] = roundStat(value / (1 + (multiplier - 1) * 0.45));
-    } else if (key === "beamDuration" || key === "spreadAngle" || key === "lifetime") {
+    if (key === "beamDuration" || key === "spreadAngle" || key === "lifetime") {
       stats[key] = value;
     } else if (key === "pelletCount") {
       stats[key] = Math.max(value, Math.round(value + (multiplier - 1) * 2));
@@ -126,6 +125,14 @@ function scaleStats(weaponType, baseStats, multiplier) {
 
   if (weaponType === GEAR_WEAPON_TYPES.missile) {
     stats.turnRate = roundStat(baseStats.turnRate * (1 + (multiplier - 1) * 0.4));
+    stats.proximityRadius = roundStat(baseStats.proximityRadius * (1 + (multiplier - 1) * 0.5));
+    stats.blastRadius = roundStat(baseStats.blastRadius * (1 + (multiplier - 1) * 0.65));
+  }
+
+  if (weaponType === GEAR_WEAPON_TYPES.laser) {
+    stats.fireRate = roundStat(baseStats.fireRate * (1 + (multiplier - 1) * 0.45));
+    stats.range = roundStat(baseStats.range * (1 + (multiplier - 1) * 0.22));
+    stats.width = roundStat(baseStats.width * (1 + (multiplier - 1) * 0.18));
   }
 
   if (weaponType === GEAR_WEAPON_TYPES.shotgun) {

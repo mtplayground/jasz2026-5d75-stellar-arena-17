@@ -53,7 +53,6 @@ function buildLoadout(equippedLoadout = {}) {
           turnRate: cleanNumber(stats.turnRate, base.turnRate),
           proximityRadius: cleanNumber(stats.proximityRadius, base.proximityRadius),
           blastRadius: cleanNumber(stats.blastRadius, base.blastRadius),
-          chargeTime: cleanNumber(stats.chargeTime, base.chargeTime),
           beamDuration: cleanNumber(stats.beamDuration, base.beamDuration),
           range: cleanNumber(stats.range, base.range),
           width: cleanNumber(stats.width, base.width),
