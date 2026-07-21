@@ -9,6 +9,7 @@ import {
   upsertPlayerFromClaims,
 } from "../src/server/db.js";
 import { WeaponSystem } from "../src/client/game/systems/WeaponSystem.js";
+import { CombatSystem } from "../src/client/game/systems/CombatSystem.js";
 import { PlayerJet } from "../src/client/game/entities/PlayerJet.js";
 
 const projectRoot = resolve(import.meta.dirname, "..");
@@ -336,6 +337,169 @@ async function assertShotgunDropAndEquipFlow(db, claims) {
   );
 }
 
+
+function assertInstantLaserFiring() {
+  const weaponSystem = new WeaponSystem();
+  const player = {
+    getWeaponMount() {
+      return { x: 120, y: 220 };
+    },
+    getForwardVector() {
+      return { x: 0, y: -1, length: 1 };
+    },
+  };
+  const size = { width: 800, height: 600, pixelRatio: 1 };
+  const input = {
+    selectedWeapon: "laser",
+    fireHeld: true,
+    fireReleased: false,
+    pointer: { x: 120, y: 20 },
+  };
+
+  weaponSystem.update(1 / 60, player, input, size);
+  assert.equal(weaponSystem.beams.length, 1, "laser should create a beam immediately while fire is held");
+  assert.equal(weaponSystem.beams[0].damage, weaponSystem.loadout.laser.damage, "instant laser beam should use configured damage directly");
+  assert.ok(weaponSystem.cooldowns.laser > 0, "instant laser should apply its normal cooldown after firing");
+  assert.ok(
+    weaponSystem.consumeEvents().some((event) => event.type === "shoot-laser"),
+    "instant laser should emit the normal shoot-laser feedback event",
+  );
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(weaponSystem, "laserCharge"),
+    false,
+    "laser charge state should not exist for instant laser firing",
+  );
+
+  weaponSystem.update(1 / 60, player, input, size);
+  assert.equal(weaponSystem.beams.length, 1, "laser cooldown should prevent another immediate beam in the next frame");
+}
+
+function createTestEnemy({ id, x, y, radius = 10, health = 100 }) {
+  return {
+    id,
+    position: { x, y },
+    definition: { radius, color: "#ff6680" },
+    health,
+    applyDamage(amount) {
+      this.health = Math.max(0, this.health - amount);
+      return this.health <= 0;
+    },
+    isDestroyed() {
+      return this.health <= 0;
+    },
+    getCollisionCircle(pixelRatio) {
+      return { x: this.position.x, y: this.position.y, radius: radius * pixelRatio };
+    },
+  };
+}
+
+function assertMissileProximityBlastDamage() {
+  const combat = new CombatSystem();
+  const nearEnemy = createTestEnemy({ id: 1, x: 25, y: 0 });
+  const splashEnemy = createTestEnemy({ id: 2, x: 55, y: 0 });
+  const farEnemy = createTestEnemy({ id: 3, x: 140, y: 0 });
+  const enemies = { enemies: [nearEnemy, splashEnemy, farEnemy] };
+  const weapons = {
+    missiles: [
+      {
+        x: 0,
+        y: 0,
+        radius: 6,
+        proximityRadius: 20,
+        blastRadius: 60,
+        damage: 80,
+        color: "#ff8a3d",
+      },
+    ],
+  };
+
+  combat.resolvePlayerMissiles(enemies, weapons, 1);
+  assert.equal(weapons.missiles.length, 0, "missile should be removed after proximity detonation");
+  assert.ok(nearEnemy.health < 100, "enemy inside proximity trigger should take blast damage");
+  assert.ok(splashEnemy.health < 100, "nearby enemy inside blast radius should take splash damage");
+  assert.equal(farEnemy.health, 100, "enemy outside blast radius should not take damage");
+  assert.ok(
+    combat.impacts.some((impact) => impact.x === 0 && impact.y === 0 && impact.radius > 30),
+    "missile detonation should create a central explosion visual",
+  );
+  assert.ok(
+    combat.consumeEvents().some((event) => event.type === "explosion" && event.x === 0 && event.y === 0),
+    "missile detonation should emit an explosion sound/feedback event",
+  );
+}
+
+async function assertLaserAndMissileGearStatsFlow(db, claims) {
+  const laserDefinitions = [...db.state.gearDefinitions.values()].filter(
+    (definition) => definition.weaponType === "laser",
+  );
+  const missileDefinitions = [...db.state.gearDefinitions.values()].filter(
+    (definition) => definition.weaponType === "missile",
+  );
+
+  assert.equal(laserDefinitions.length, 5, "laser gear should exist across all five rarity tiers");
+  assert.equal(missileDefinitions.length, 5, "missile gear should exist across all five rarity tiers");
+
+  for (const definition of laserDefinitions) {
+    assert.equal(definition.stats.chargeTime, undefined, "instant laser gear should not expose chargeTime");
+    assert.equal(typeof definition.stats.damage, "number", "laser gear should scale instant damage");
+    assert.equal(typeof definition.stats.fireRate, "number", "laser gear should scale instant fire rate");
+    assert.equal(typeof definition.stats.range, "number", "laser gear should scale beam length");
+    assert.equal(typeof definition.stats.width, "number", "laser gear should scale beam width");
+  }
+
+  for (const definition of missileDefinitions) {
+    assert.equal(typeof definition.stats.proximityRadius, "number", "missile gear should include proximity radius");
+    assert.equal(typeof definition.stats.blastRadius, "number", "missile gear should include blast radius");
+  }
+
+  const commonLaser = laserDefinitions.find((definition) => definition.rarity === "common");
+  const legendaryLaser = laserDefinitions.find((definition) => definition.rarity === "legendary");
+  assert.ok(legendaryLaser.stats.damage > commonLaser.stats.damage, "higher-rarity laser should increase damage");
+  assert.ok(legendaryLaser.stats.fireRate > commonLaser.stats.fireRate, "higher-rarity laser should increase fire rate");
+  assert.ok(legendaryLaser.stats.range > commonLaser.stats.range, "higher-rarity laser should increase beam length");
+  assert.ok(legendaryLaser.stats.width > commonLaser.stats.width, "higher-rarity laser should increase beam width");
+
+  const commonMissile = missileDefinitions.find((definition) => definition.rarity === "common");
+  const legendaryMissile = missileDefinitions.find((definition) => definition.rarity === "legendary");
+  assert.ok(
+    legendaryMissile.stats.proximityRadius > commonMissile.stats.proximityRadius,
+    "higher-rarity missile should increase proximity radius",
+  );
+  assert.ok(
+    legendaryMissile.stats.blastRadius > commonMissile.stats.blastRadius,
+    "higher-rarity missile should increase blast radius",
+  );
+
+  db.state.forcedWeaponType = "laser";
+  const laserClear = await recordLevelClearAndGrantDrop(claims, 3, db);
+  db.state.forcedWeaponType = null;
+  const equippedLaser = await equipGearForPlayer(claims, laserClear.drop.id, db);
+  const laserGear = equippedLaser.ownedGear.find((gear) => gear.id === laserClear.drop.id);
+  const laserWeaponSystem = new WeaponSystem();
+  laserWeaponSystem.setEquippedLoadout(equippedLaser.equippedLoadout);
+  assertLoadoutUsesGear(laserWeaponSystem, laserGear);
+  assert.equal(laserWeaponSystem.loadout.laser.chargeTime, undefined, "equipped laser loadout should ignore chargeTime");
+
+  db.state.forcedWeaponType = "missile";
+  const missileClear = await recordLevelClearAndGrantDrop(claims, 4, db);
+  db.state.forcedWeaponType = null;
+  const equippedMissile = await equipGearForPlayer(claims, missileClear.drop.id, db);
+  const missileGear = equippedMissile.ownedGear.find((gear) => gear.id === missileClear.drop.id);
+  const missileWeaponSystem = new WeaponSystem();
+  missileWeaponSystem.setEquippedLoadout(equippedMissile.equippedLoadout);
+  assertLoadoutUsesGear(missileWeaponSystem, missileGear);
+  assert.equal(
+    missileWeaponSystem.loadout.missile.proximityRadius,
+    missileGear.stats.proximityRadius,
+    "equipped missile proximity radius should feed into gameplay loadout",
+  );
+  assert.equal(
+    missileWeaponSystem.loadout.missile.blastRadius,
+    missileGear.stats.blastRadius,
+    "equipped missile blast radius should feed into gameplay loadout",
+  );
+}
+
 function assertWasdMovementIsDecoupledFromPointerAim() {
   const player = new PlayerJet();
   const size = { width: 1000, height: 800, pixelRatio: 1 };
@@ -423,6 +587,9 @@ async function run() {
   assertLoadoutUsesGear(weaponSystem, equippedDrop);
 
   await assertShotgunDropAndEquipFlow(db, claims);
+  assertInstantLaserFiring();
+  assertMissileProximityBlastDamage();
+  await assertLaserAndMissileGearStatsFlow(db, claims);
   assertWasdMovementIsDecoupledFromPointerAim();
   await assertClientFlowWiring();
 
