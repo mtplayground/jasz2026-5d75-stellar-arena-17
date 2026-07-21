@@ -24,6 +24,10 @@ function formatWeaponType(weaponType) {
     .join(" ");
 }
 
+function shouldDisplayStat(statName) {
+  return statName !== "chargeTime";
+}
+
 function formatStatName(statName) {
   return String(statName)
     .replace(/([a-z])([A-Z])/g, "$1 $2")
@@ -42,8 +46,12 @@ function formatStatValue(statName, value) {
     return `${number.toFixed(2).replace(/\.?0+$/, "")}/s`;
   }
 
-  if (statName === "chargeTime" || statName === "beamDuration") {
+  if (statName === "beamDuration") {
     return `${number.toFixed(2).replace(/\.?0+$/, "")}s`;
+  }
+
+  if (["range", "width", "proximityRadius", "blastRadius"].includes(statName)) {
+    return `${number.toFixed(2).replace(/\.?0+$/, "")} px`;
   }
 
   return Number.isInteger(number) ? String(number) : number.toFixed(2).replace(/\.?0+$/, "");
@@ -297,8 +305,8 @@ export function initAppRouter({
     meta.textContent = `Item level ${gear.itemLevel || 1} - ${formatSource(gear.source)}`;
 
     const stats = createElement("dl", "inventory-stats");
-    const statEntries = Object.entries(gear.stats || {}).filter(([, value]) =>
-      Number.isFinite(Number(value)),
+    const statEntries = Object.entries(gear.stats || {}).filter(
+      ([key, value]) => shouldDisplayStat(key) && Number.isFinite(Number(value)),
     );
     stats.append(
       ...statEntries.flatMap(([key, value]) => {

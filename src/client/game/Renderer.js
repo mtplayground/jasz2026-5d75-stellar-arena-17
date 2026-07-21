@@ -360,7 +360,9 @@ export class Renderer {
   }
 
   createStatNodes(stats) {
-    const entries = Object.entries(stats).filter(([, value]) => Number.isFinite(Number(value)));
+    const entries = Object.entries(stats).filter(
+      ([key, value]) => this.shouldDisplayStat(key) && Number.isFinite(Number(value)),
+    );
 
     return entries.flatMap(([key, value]) => {
       const term = document.createElement("dt");
@@ -383,6 +385,10 @@ export class Renderer {
       .join(" ");
   }
 
+  shouldDisplayStat(statName) {
+    return statName !== "chargeTime";
+  }
+
   formatStatName(statName) {
     return String(statName)
       .replace(/([a-z])([A-Z])/g, "$1 $2")
@@ -401,8 +407,12 @@ export class Renderer {
       return `${number.toFixed(2).replace(/\.?0+$/, "")}/s`;
     }
 
-    if (statName === "chargeTime" || statName === "beamDuration") {
+    if (statName === "beamDuration") {
       return `${number.toFixed(2).replace(/\.?0+$/, "")}s`;
+    }
+
+    if (["range", "width", "proximityRadius", "blastRadius"].includes(statName)) {
+      return `${number.toFixed(2).replace(/\.?0+$/, "")} px`;
     }
 
     return Number.isInteger(number) ? String(number) : number.toFixed(2).replace(/\.?0+$/, "");
