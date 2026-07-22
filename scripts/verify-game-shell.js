@@ -121,10 +121,14 @@ if (!css.includes("width: 100vw") || !css.includes("height: 100vh")) {
 
 if (
   !css.includes("@keyframes loot-card-pop") ||
+  !css.includes("@keyframes hud-damage-pulse") ||
+  !css.includes("@keyframes victory-result-pop") ||
+  !css.includes("@keyframes loot-rare-glow") ||
+  !css.includes("prefers-reduced-motion") ||
   !css.includes('data-rarity="legendary"') ||
   !css.includes(".loot-stats")
 ) {
-  throw new Error("Loot box reveal animation and rarity styling are missing from styles.css");
+  throw new Error("Loot, HUD pulse, result pulse, reduced-motion, or rarity styling is missing from styles.css");
 }
 
 if (
@@ -188,6 +192,7 @@ if (
 
 if (
   !weaponDefinitions.includes("proximityRadius") ||
+  !weaponDefinitions.includes("proximityRadius: 56") ||
   !weaponDefinitions.includes("blastRadius") ||
   !weaponSystem.includes("proximityRadius: definition.proximityRadius * pixelRatio") ||
   !weaponSystem.includes("blastRadius: definition.blastRadius * pixelRatio") ||
@@ -201,6 +206,7 @@ if (
 if (
   gearCatalog.includes("chargeTime") ||
   !gearCatalog.includes("proximityRadius") ||
+  !gearCatalog.includes("proximityRadius: 56") ||
   !gearCatalog.includes("blastRadius") ||
   !appRouter.includes("shouldDisplayStat") ||
   !appRouter.includes('"proximityRadius"') ||
@@ -208,6 +214,40 @@ if (
   !renderer.includes('"blastRadius"')
 ) {
   throw new Error("Gear stat catalog or stat display formatting is not aligned with instant laser and blast missiles");
+}
+
+if (
+  !combatSystem.includes("this.particles") ||
+  !combatSystem.includes("spawnImpactParticles") ||
+  !combatSystem.includes("drawImpact") ||
+  !combatSystem.includes("drawParticle") ||
+  !combatSystem.includes("MAX_PARTICLES") ||
+  !combatSystem.includes("shockwaveRadius") ||
+  !combatSystem.includes("innerRadius")
+) {
+  throw new Error("Combat particle, layered impact, or bounded visual effect wiring is missing");
+}
+
+if (
+  !renderer.includes("screenFlash") ||
+  !renderer.includes("drawScreenFlash") ||
+  !renderer.includes("triggerHudDamagePulse") ||
+  !renderer.includes("this.screenShake = Math.max(this.screenShake, 14)") ||
+  !renderer.includes("this.screenShake = Math.max(this.screenShake, 10)") ||
+  !renderer.includes("starWarp")
+) {
+  throw new Error("Screen flash, stronger shake, HUD pulse, or star warp wiring is missing from Renderer.js");
+}
+
+if (
+  !weaponSystem.includes("drawMissileTrail") ||
+  !weaponSystem.includes("colorWithAlpha") ||
+  !weaponSystem.includes('globalCompositeOperation = "lighter"') ||
+  !weaponSystem.includes("createRadialGradient") ||
+  !weaponSystem.includes("beam.width * 3.4") ||
+  !weaponSystem.includes("burst: true")
+) {
+  throw new Error("Weapon glow, missile trail, layered laser, or shotgun burst visual wiring is missing");
 }
 
 for (const rarity of ["common", "uncommon", "rare", "epic", "legendary"]) {
