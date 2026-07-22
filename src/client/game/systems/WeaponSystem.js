@@ -31,6 +31,17 @@ function cleanNumber(value, fallback, min = 0) {
   return Number.isFinite(number) && number > min ? number : fallback;
 }
 
+function colorWithAlpha(color, alpha) {
+  if (typeof color === "string" && /^#[0-9a-f]{6}$/i.test(color)) {
+    const red = Number.parseInt(color.slice(1, 3), 16);
+    const green = Number.parseInt(color.slice(3, 5), 16);
+    const blue = Number.parseInt(color.slice(5, 7), 16);
+    return `rgba(${red}, ${green}, ${blue}, ${clamp(alpha, 0, 1)})`;
+  }
+
+  return color;
+}
+
 function buildLoadout(equippedLoadout = {}) {
   return Object.fromEntries(
     WEAPON_ORDER.map((type) => {
@@ -162,7 +173,7 @@ export class WeaponSystem {
       age: 0,
       lifetime: definition.lifetime,
     });
-    this.addMuzzleFlash(mount, definition.color, 12 * pixelRatio);
+    this.addMuzzleFlash(mount, definition.color, 18 * pixelRatio, { intensity: 1.15 });
     this.addEvent("shoot-projectile", mount.x, mount.y);
   }
 
@@ -184,7 +195,7 @@ export class WeaponSystem {
       target: pointer ? { x: pointer.x, y: pointer.y } : null,
       trail: [],
     });
-    this.addMuzzleFlash(mount, definition.color, 18 * pixelRatio);
+    this.addMuzzleFlash(mount, definition.color, 28 * pixelRatio, { intensity: 1.35, lifetime: 0.18 });
     this.addEvent("shoot-missile", mount.x, mount.y);
   }
 
@@ -215,7 +226,11 @@ export class WeaponSystem {
       });
     }
 
-    this.addMuzzleFlash(mount, definition.color, 20 * pixelRatio);
+    this.addMuzzleFlash(mount, definition.color, 38 * pixelRatio, {
+      intensity: 1.75,
+      lifetime: 0.17,
+      burst: true,
+    });
     this.addEvent("shoot-shotgun", mount.x, mount.y);
   }
 
@@ -236,7 +251,7 @@ export class WeaponSystem {
       damage: definition.damage,
     });
     this.cooldowns[definition.type] = 1 / definition.fireRate;
-    this.addMuzzleFlash(mount, definition.color, 22 * pixelRatio);
+    this.addMuzzleFlash(mount, definition.color, 34 * pixelRatio, { intensity: 1.45, lifetime: 0.16 });
     this.addEvent("shoot-laser", mount.x, mount.y);
   }
 
@@ -301,14 +316,16 @@ export class WeaponSystem {
     this.muzzleFlashes = this.muzzleFlashes.filter((flash) => flash.age < flash.lifetime);
   }
 
-  addMuzzleFlash(mount, color, radius) {
+  addMuzzleFlash(mount, color, radius, options = {}) {
     this.muzzleFlashes.push({
       x: mount.x,
       y: mount.y,
       color,
       radius,
+      intensity: options.intensity || 1,
+      burst: Boolean(options.burst),
       age: 0,
-      lifetime: 0.11,
+      lifetime: options.lifetime || 0.15,
     });
 
     if (this.muzzleFlashes.length > 24) {
@@ -337,33 +354,56 @@ export class WeaponSystem {
   drawProjectiles(ctx) {
     for (const projectile of this.projectiles) {
       const alpha = 1 - projectile.age / projectile.lifetime;
+      const haloRadius = projectile.radius * 4.2;
+
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.globalAlpha = alpha * 0.74;
+      const halo = ctx.createRadialGradient(
+        projectile.x,
+        projectile.y,
+        projectile.radius,
+        projectile.x,
+        projectile.y,
+        haloRadius,
+      );
+      halo.addColorStop(0, colorWithAlpha(projectile.color, 0.72));
+      halo.addColorStop(0.46, colorWithAlpha(projectile.color, 0.22));
+      halo.addColorStop(1, "rgba(255, 255, 255, 0)");
+      ctx.fillStyle = halo;
+      ctx.beginPath();
+      ctx.arc(projectile.x, projectile.y, haloRadius, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.globalAlpha = alpha;
       ctx.fillStyle = projectile.color;
       ctx.shadowColor = projectile.color;
-      ctx.shadowBlur = 10;
-      ctx.globalAlpha = alpha;
+      ctx.shadowBlur = 18;
       ctx.beginPath();
-      ctx.arc(projectile.x, projectile.y, projectile.radius, 0, Math.PI * 2);
+      ctx.arc(projectile.x, projectile.y, projectile.radius * 1.15, 0, Math.PI * 2);
       ctx.fill();
+
+      ctx.globalAlpha = Math.min(1, alpha + 0.2);
+      ctx.fillStyle = "#f7f8fb";
+      ctx.beginPath();
+      ctx.arc(projectile.x, projectile.y, Math.max(1, projectile.radius * 0.42), 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
     }
-    ctx.globalAlpha = 1;
-    ctx.shadowBlur = 0;
   }
 
   drawMissiles(ctx) {
     for (const missile of this.missiles) {
-      missile.trail.forEach((point, index) => {
-        const alpha = (index + 1) / missile.trail.length;
-        ctx.fillStyle = `rgba(255, 138, 61, ${alpha * 0.35})`;
-        ctx.beginPath();
-        ctx.arc(point.x, point.y, missile.radius * alpha, 0, Math.PI * 2);
-        ctx.fill();
-      });
+      this.drawMissileTrail(ctx, missile);
 
       const angle = Math.atan2(missile.direction.y, missile.direction.x) + Math.PI / 2;
       ctx.save();
+      ctx.globalCompositeOperation = "lighter";
       ctx.translate(missile.x, missile.y);
       ctx.rotate(angle);
       ctx.fillStyle = missile.color;
+      ctx.shadowColor = missile.color;
+      ctx.shadowBlur = 18;
       ctx.beginPath();
       ctx.moveTo(0, -missile.radius * 1.6);
       ctx.lineTo(missile.radius, missile.radius * 1.4);
@@ -371,8 +411,58 @@ export class WeaponSystem {
       ctx.lineTo(-missile.radius, missile.radius * 1.4);
       ctx.closePath();
       ctx.fill();
+
+      ctx.fillStyle = "#fff0d8";
+      ctx.beginPath();
+      ctx.moveTo(0, -missile.radius * 0.9);
+      ctx.lineTo(missile.radius * 0.32, missile.radius * 0.78);
+      ctx.lineTo(0, missile.radius * 0.44);
+      ctx.lineTo(-missile.radius * 0.32, missile.radius * 0.78);
+      ctx.closePath();
+      ctx.fill();
       ctx.restore();
     }
+  }
+
+  drawMissileTrail(ctx, missile) {
+    if (missile.trail.length < 2) {
+      return;
+    }
+
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+
+    for (let index = 1; index < missile.trail.length; index += 1) {
+      const previous = missile.trail[index - 1];
+      const current = missile.trail[index];
+      const alpha = index / missile.trail.length;
+      const width = missile.radius * (0.65 + alpha * 1.65);
+      const gradient = ctx.createLinearGradient(previous.x, previous.y, current.x, current.y);
+      gradient.addColorStop(0, `rgba(255, 88, 45, ${alpha * 0.05})`);
+      gradient.addColorStop(0.45, `rgba(255, 138, 61, ${alpha * 0.3})`);
+      gradient.addColorStop(1, `rgba(255, 222, 124, ${alpha * 0.62})`);
+
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = gradient;
+      ctx.shadowColor = "#ff8a3d";
+      ctx.shadowBlur = 18 * alpha;
+      ctx.lineWidth = width;
+      ctx.beginPath();
+      ctx.moveTo(previous.x, previous.y);
+      ctx.lineTo(current.x, current.y);
+      ctx.stroke();
+    }
+
+    const newest = missile.trail[missile.trail.length - 1];
+    ctx.fillStyle = "rgba(255, 222, 124, 0.42)";
+    ctx.shadowColor = "#ffcf5f";
+    ctx.shadowBlur = 22;
+    ctx.beginPath();
+    ctx.arc(newest.x, newest.y, missile.radius * 1.35, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
   }
 
   drawBeams(ctx) {
@@ -381,19 +471,34 @@ export class WeaponSystem {
       const endX = beam.x + beam.direction.x * beam.range;
       const endY = beam.y + beam.direction.y * beam.range;
       ctx.save();
-      ctx.globalAlpha = alpha;
+      ctx.globalCompositeOperation = "lighter";
+      ctx.globalAlpha = alpha * 0.46;
       ctx.strokeStyle = beam.color;
       ctx.shadowColor = beam.color;
-      ctx.shadowBlur = 22;
-      ctx.lineWidth = beam.width;
+      ctx.shadowBlur = 34;
+      ctx.lineWidth = beam.width * 3.4;
       ctx.lineCap = "round";
       ctx.beginPath();
       ctx.moveTo(beam.x, beam.y);
       ctx.lineTo(endX, endY);
       ctx.stroke();
-      ctx.globalAlpha = Math.min(1, alpha + 0.25);
-      ctx.lineWidth = Math.max(2, beam.width * 0.35);
+
+      ctx.globalAlpha = alpha * 0.82;
+      ctx.strokeStyle = beam.color;
+      ctx.shadowBlur = 18;
+      ctx.lineWidth = beam.width * 1.45;
+      ctx.beginPath();
+      ctx.moveTo(beam.x, beam.y);
+      ctx.lineTo(endX, endY);
+      ctx.stroke();
+
+      ctx.globalAlpha = Math.min(1, alpha + 0.32);
+      ctx.shadowBlur = 8;
+      ctx.lineWidth = Math.max(2, beam.width * 0.42);
       ctx.strokeStyle = "#f7f8fb";
+      ctx.beginPath();
+      ctx.moveTo(beam.x, beam.y);
+      ctx.lineTo(endX, endY);
       ctx.stroke();
       ctx.restore();
     }
@@ -402,14 +507,39 @@ export class WeaponSystem {
   drawMuzzleFlashes(ctx, pixelRatio) {
     for (const flash of this.muzzleFlashes) {
       const progress = flash.age / flash.lifetime;
+      const fade = 1 - progress;
+      const radius = flash.radius * (1 - progress * 0.42);
+      const bloomRadius = radius * (flash.burst ? 1.35 : 1.05);
       ctx.save();
-      ctx.globalAlpha = 1 - progress;
-      ctx.fillStyle = flash.color;
+      ctx.globalCompositeOperation = "lighter";
+      ctx.globalAlpha = fade;
       ctx.shadowColor = flash.color;
-      ctx.shadowBlur = 16 * pixelRatio;
+      ctx.shadowBlur = 24 * pixelRatio * flash.intensity;
+
+      const bloom = ctx.createRadialGradient(flash.x, flash.y, 0, flash.x, flash.y, bloomRadius);
+      bloom.addColorStop(0, "rgba(255, 255, 255, 0.92)");
+      bloom.addColorStop(0.28, colorWithAlpha(flash.color, 0.7));
+      bloom.addColorStop(1, "rgba(255, 255, 255, 0)");
+      ctx.fillStyle = bloom;
       ctx.beginPath();
-      ctx.arc(flash.x, flash.y, flash.radius * (1 - progress * 0.5), 0, Math.PI * 2);
+      ctx.arc(flash.x, flash.y, bloomRadius, 0, Math.PI * 2);
       ctx.fill();
+
+      if (flash.burst) {
+        ctx.globalAlpha = fade * 0.82;
+        ctx.strokeStyle = colorWithAlpha(flash.color, 0.76);
+        ctx.lineWidth = Math.max(1, 2.2 * pixelRatio);
+        for (let index = 0; index < 8; index += 1) {
+          const angle = (Math.PI * 2 * index) / 8;
+          const inner = radius * 0.28;
+          const outer = radius * (0.72 + progress * 0.25);
+          ctx.beginPath();
+          ctx.moveTo(flash.x + Math.cos(angle) * inner, flash.y + Math.sin(angle) * inner);
+          ctx.lineTo(flash.x + Math.cos(angle) * outer, flash.y + Math.sin(angle) * outer);
+          ctx.stroke();
+        }
+      }
+
       ctx.restore();
     }
   }
