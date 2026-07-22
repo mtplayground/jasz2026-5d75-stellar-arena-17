@@ -1,38 +1,52 @@
-Architecture plan for issues #41-#44
+Architecture plan for issues #49-#54
 
-Current structure
-- Runtime is a Node HTTP server (server.js) serving a static browser game from dist/ or src/client and JSON APIs backed by PostgreSQL in src/server/db.js.
-- Client gameplay code is organized under src/client/game:
-  - data/weaponDefinitions.js owns base weapon constants and default loadout stats.
-  - systems/WeaponSystem.js owns weapon selection, cooldowns, projectile/missile/beam spawning, laser timing, missile steering, and draw/update lifecycle for weapon entities.
-  - systems/CombatSystem.js owns collision checks, enemy damage application, impact effects, and combat events.
-  - Renderer.js wires input, player/enemy/weapon/combat systems together and renders HUD/feedback.
-- Gear stats are shared in src/shared/gearCatalog.js and persisted/listed/equipped via src/server/db.js. WeaponSystem.buildLoadout already maps equipped gear stats into active weapon definitions.
-- Verification is split between scripts/verify-game-shell.js for static wiring checks and scripts/e2e-playthrough.js for deterministic gameplay/data-flow assertions with a fake PostgreSQL adapter.
+Project shape
+- Vanilla Node 20 ES-module app with a native HTTP server in server.js and a browser-only canvas game in src/client.
+- Client game is organized into small modules:
+  - Renderer.js orchestrates frame update/render, background/starfield, HUD state, result overlays, sound feedback, screen shake, and level lifecycle.
+  - WeaponSystem.js owns player projectile/missile/beam/pellet state, weapon input/cooldowns, muzzle flashes, and weapon drawing.
+  - CombatSystem.js owns collision resolution, enemy damage, missile blast/falloff, impact effects, and combat feedback events.
+  - data/weaponDefinitions.js contains default weapon stats.
+  - shared/gearCatalog.js mirrors/scales weapon stats for persistent loot and database seeding.
+  - styles.css and index.html own HUD/result/inventory markup and CSS animations.
+- Tests are custom Node scripts: scripts/verify-game-shell.js string/syntax wiring checks and scripts/e2e-playthrough.js behavioral checks with fake DB/game objects.
 
-Issue dependencies and implementation sequence
-1. #41 Make laser fire instantly instead of charging
-   - Update src/client/game/data/weaponDefinitions.js and src/client/game/systems/WeaponSystem.js so laser fire is immediate on fire input when off cooldown.
-   - Remove or neutralize charge-only state paths without breaking HUD status. Beam creation should still use aim direction, range, width, damage, lifetime, cooldown, muzzle flash, and shoot-laser event.
-   - Renderer/HUD should no longer imply a charging mechanic; keep weapon status useful.
-
-2. #42 Make missiles explode when they get near an enemy
-   - Add missile proximity/explosion semantics primarily in src/client/game/systems/CombatSystem.js, with any needed missile stat fields coming from WeaponSystem missile entities.
-   - Prefer a reusable explosion radius field on missile definitions/entities and area damage logic that damages enemies inside the blast radius when a missile collides or gets within proximity of any enemy.
-   - Preserve existing direct-hit behavior but make explosion effects/events explicit so sound/visual feedback remains consistent.
-
-3. #43 Scale the new laser and missile stats with gear rarity
-   - Update src/shared/gearCatalog.js scaling rules for missile explosion/proximity stats and instant-laser stats.
-   - Ensure src/client/game/systems/WeaponSystem.js buildLoadout accepts the new gear stat fields and applies them to missile/laser combat behavior.
-   - Keep PostgreSQL schema stable if stats remain JSONB; no migration should be needed unless a new constrained weapon type or table column is introduced.
-
-4. #44 Update tests for instant laser and exploding missiles
-   - Extend scripts/verify-game-shell.js to assert instant-laser wiring, no charge dependency, missile explosion/proximity strings, and rarity-scaled stat names.
-   - Extend scripts/e2e-playthrough.js with deterministic unit-style gameplay checks: laser fires a beam immediately from fire input, missile proximity/explosion damages enemies within radius, and rarity/equipped gear stats alter live WeaponSystem values.
+Issue dependency order
+1. #49 missile tuning should land first because it changes canonical weapon stats used by visuals/tests.
+2. #50 combat impact particles/shockwaves builds on existing CombatSystem impact drawing and should be implemented before Renderer reacts to larger impacts.
+3. #51 screen shake/flash/star streaks consumes CombatSystem/WeaponSystem feedback events and should align with #50 explosion semantics.
+4. #52 weapon visuals can be implemented independently in WeaponSystem but should coordinate colors/intensity with #50/#51.
+5. #53 HUD/result CSS pulses should consume existing or newly added DOM state hooks from Renderer, after feedback events are stable.
+6. #54 test updates must come last and assert the final constants/effect wiring from #49-#53.
 
 Key design decisions
-- Keep weapon behavior server-independent; the browser game loop remains authoritative for combat simulation while persistent account state stays in PostgreSQL.
-- Store new gear stats as JSONB in existing gear definitions so equipped loadout plumbing remains backward-compatible.
-- Add stats in a data-first way: define defaults in weaponDefinitions.js, scale in gearCatalog.js, pass through buildLoadout, then consume in WeaponSystem/CombatSystem.
-- Avoid broad rewrites. Each issue should modify only the files needed for that behavior and leave auth, account persistence, loot, and inventory APIs intact.
-- Tests should be deterministic and avoid relying on random drops; use fake DB controls or direct system setup where needed.
+- Keep gameplay balance stable except for #49's proximity radius. Do not change damage, fire rate, enemy health, or blast falloff unless explicitly required.
+- Maintain clear ownership boundaries:
+  - Numerical weapon/gear stat changes: weaponDefinitions.js and gearCatalog.js.
+  - Visual combat hit/explosion state: CombatSystem.js only, with bounded arrays for particles/impacts.
+  - Global camera/background response and flash overlay: Renderer.js only, driven by existing event types such as hit, explosion, and player-hit.
+  - Weapon-specific glow/trails/beams/muzzle rendering: WeaponSystem.js only.
+  - UI animation styling: styles.css, with Renderer.js only adding/removing lightweight state classes/data attributes when necessary.
+- Use existing event pipeline rather than introducing a global bus: WeaponSystem.consumeEvents() and CombatSystem.consumeEvents() already feed Renderer.handleFeedbackEvents(). Add event metadata only if needed, preserving current event type strings for tests and sound.
+- Keep effects performant and deterministic enough for tests:
+  - Cap particle arrays and impact arrays.
+  - Use short lifetimes and cull expired effects in update paths.
+  - Avoid unbounded random-only behavior in assertions; tests should check structure/state/string wiring rather than pixel output.
+- Preserve accessibility/performance for UI animations:
+  - Add prefers-reduced-motion overrides in styles.css.
+  - Keep result/HUD animations short and non-blocking.
+- Tests should be updated after implementation to verify:
+  - Missile base proximityRadius is about 56 and gear rarity scaling follows the new base.
+  - findMissileProximityTrigger still triggers before direct collision while detonateMissile keeps near/splash/far damage behavior.
+  - CombatSystem exposes particle/shockwave update/draw paths with bounded cleanup.
+  - Renderer includes screenFlash handling and increased shake values.
+  - WeaponSystem contains glow/trail/layered laser/muzzle visual functions.
+  - styles.css contains HUD/result/loot pulse animations and reduced-motion handling.
+
+Planned file touch map by issue
+- #49: src/client/game/data/weaponDefinitions.js, src/shared/gearCatalog.js, possibly scripts/e2e-playthrough.js later in #54.
+- #50: src/client/game/systems/CombatSystem.js.
+- #51: src/client/game/Renderer.js.
+- #52: src/client/game/systems/WeaponSystem.js.
+- #53: src/client/styles.css, src/client/index.html if extra state hooks are needed, src/client/game/Renderer.js for class/data toggles.
+- #54: scripts/e2e-playthrough.js, scripts/verify-game-shell.js.
