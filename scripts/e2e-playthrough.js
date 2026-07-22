@@ -11,6 +11,7 @@ import {
 import { WeaponSystem } from "../src/client/game/systems/WeaponSystem.js";
 import { CombatSystem } from "../src/client/game/systems/CombatSystem.js";
 import { PlayerJet } from "../src/client/game/entities/PlayerJet.js";
+import { DEFAULT_WEAPON_LOADOUT } from "../src/client/game/data/weaponDefinitions.js";
 
 const projectRoot = resolve(import.meta.dirname, "..");
 
@@ -395,33 +396,44 @@ function createTestEnemy({ id, x, y, radius = 10, health = 100 }) {
 
 function assertMissileProximityBlastDamage() {
   const combat = new CombatSystem();
-  const nearEnemy = createTestEnemy({ id: 1, x: 25, y: 0 });
-  const splashEnemy = createTestEnemy({ id: 2, x: 55, y: 0 });
-  const farEnemy = createTestEnemy({ id: 3, x: 140, y: 0 });
+  const missileDefinition = DEFAULT_WEAPON_LOADOUT.missile;
+  const nearEnemy = createTestEnemy({ id: 1, x: 32, y: 0 });
+  const splashEnemy = createTestEnemy({ id: 2, x: 76, y: 0 });
+  const farEnemy = createTestEnemy({ id: 3, x: 118, y: 0 });
   const enemies = { enemies: [nearEnemy, splashEnemy, farEnemy] };
   const weapons = {
     missiles: [
       {
         x: 0,
         y: 0,
-        radius: 6,
-        proximityRadius: 20,
-        blastRadius: 60,
+        radius: missileDefinition.radius,
+        proximityRadius: missileDefinition.proximityRadius,
+        blastRadius: missileDefinition.blastRadius,
         damage: 80,
         color: "#ff8a3d",
       },
     ],
   };
 
+  assert.equal(
+    missileDefinition.proximityRadius,
+    56,
+    "default missile proximity trigger should use the tuned larger radius",
+  );
   combat.resolvePlayerMissiles(enemies, weapons, 1);
   assert.equal(weapons.missiles.length, 0, "missile should be removed after proximity detonation");
-  assert.ok(nearEnemy.health < 100, "enemy inside proximity trigger should take blast damage");
+  assert.ok(nearEnemy.health < 100, "enemy inside larger proximity trigger should take blast damage");
   assert.ok(splashEnemy.health < 100, "nearby enemy inside blast radius should take splash damage");
+  assert.ok(
+    splashEnemy.health > nearEnemy.health,
+    "splash enemy should take reduced radial falloff damage compared with the closer enemy",
+  );
   assert.equal(farEnemy.health, 100, "enemy outside blast radius should not take damage");
   assert.ok(
-    combat.impacts.some((impact) => impact.x === 0 && impact.y === 0 && impact.radius > 30),
+    combat.impacts.some((impact) => impact.x === 0 && impact.y === 0 && impact.radius > missileDefinition.blastRadius * 0.75),
     "missile detonation should create a central explosion visual",
   );
+  assert.ok(combat.particles.length > 0, "missile detonation should spawn punchy spark particles");
   assert.ok(
     combat.consumeEvents().some((event) => event.type === "explosion" && event.x === 0 && event.y === 0),
     "missile detonation should emit an explosion sound/feedback event",
