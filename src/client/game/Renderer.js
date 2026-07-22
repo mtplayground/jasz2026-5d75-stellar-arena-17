@@ -221,6 +221,7 @@ export class Renderer {
       if (event.type === "player-hit") {
         this.screenShake = Math.max(this.screenShake, 14);
         this.addScreenFlash(0.48, "217, 244, 95");
+        this.triggerHudDamagePulse();
       }
       if (event.type === "explosion") {
         this.screenShake = Math.max(this.screenShake, 10);
@@ -234,6 +235,19 @@ export class Renderer {
       this.screenFlashColor = color;
     }
     this.screenFlash = Math.max(this.screenFlash, alpha);
+  }
+
+  triggerHudDamagePulse() {
+    const shell = this.canvas.closest(".app-shell");
+    if (!shell) {
+      return;
+    }
+
+    shell.classList.remove("hud-damage-pulse");
+    window.requestAnimationFrame(() => {
+      shell.classList.add("hud-damage-pulse");
+      window.setTimeout(() => shell.classList.remove("hud-damage-pulse"), 520);
+    });
   }
 
   getNextPlayableLevelNumber() {
@@ -308,6 +322,7 @@ export class Renderer {
     this.resultState.drop = null;
     if (this.hud.resultScreen) {
       this.hud.resultScreen.hidden = true;
+      this.hud.resultScreen.removeAttribute("data-outcome");
       this.canvas.closest(".app-shell")?.removeAttribute("data-result-visible");
     }
     this.hideLootReveal();
@@ -319,6 +334,7 @@ export class Renderer {
   setResultContent({ label, title, summary, primary }) {
     if (this.hud.resultScreen) {
       this.hud.resultScreen.hidden = false;
+      this.hud.resultScreen.dataset.outcome = this.resultState.outcome || "result";
       this.canvas.closest(".app-shell")?.setAttribute("data-result-visible", "true");
     }
     if (this.hud.resultLabel) this.hud.resultLabel.textContent = label;
