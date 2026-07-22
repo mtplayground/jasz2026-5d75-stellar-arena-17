@@ -6,6 +6,9 @@ import { LevelSystem } from "./systems/LevelSystem.js";
 import { SoundSystem } from "./systems/SoundSystem.js";
 import { WeaponSystem } from "./systems/WeaponSystem.js";
 
+const SCREEN_SHAKE_DECAY = 28;
+const SCREEN_FLASH_DECAY = 4.2;
+
 export class Renderer {
   constructor(canvas, viewport, input, hud = {}) {
     const context = canvas.getContext("2d", { alpha: false });
@@ -27,6 +30,9 @@ export class Renderer {
     this.combat = new CombatSystem();
     this.sound = new SoundSystem();
     this.screenShake = 0;
+    this.screenFlash = 0;
+    this.screenFlashColor = "255, 255, 255";
+    this.starWarp = 0;
     this.wasGameActive = false;
     this.highestClearedLevel = 0;
     this.currentLevelNumber = 1;
@@ -55,18 +61,23 @@ export class Renderer {
 
   update(dt) {
     const { width, height } = this.viewport.size;
-    this.screenShake = Math.max(0, this.screenShake - dt);
+    const gameActive = this.input.isFlightEnabled();
+    const activeCombat = gameActive && !this.player.gameOver && !this.level.levelClear;
+
+    this.screenShake = Math.max(0, this.screenShake - dt * SCREEN_SHAKE_DECAY);
+    this.screenFlash = Math.max(0, this.screenFlash - dt * SCREEN_FLASH_DECAY);
+    this.starWarp = activeCombat
+      ? Math.min(1, this.starWarp + dt * 3.4)
+      : Math.max(0, this.starWarp - dt * 2.8);
 
     for (const star of this.starLayers) {
-      star.y += star.speed * dt;
+      star.y += star.speed * (1 + this.starWarp * 0.75) * dt;
 
       if (star.y > height + 8) {
         star.y = -8;
         star.x = (star.x + width * 0.37 + star.speed * 3) % width;
       }
     }
-
-    const gameActive = this.input.isFlightEnabled();
 
     if (gameActive && !this.wasGameActive) {
       this.startRun(this.getNextPlayableLevelNumber());
@@ -125,6 +136,7 @@ export class Renderer {
     this.combat.draw(ctx, this.viewport.size.pixelRatio);
     this.player.draw(ctx, alpha, this.viewport.size.pixelRatio);
     ctx.restore();
+    this.drawScreenFlash(ctx, width, height);
   }
 
   updateWeaponStatus() {
@@ -207,12 +219,21 @@ export class Renderer {
     for (const event of events) {
       this.sound.play(event.type);
       if (event.type === "player-hit") {
-        this.screenShake = Math.max(this.screenShake, 8);
+        this.screenShake = Math.max(this.screenShake, 14);
+        this.addScreenFlash(0.48, "217, 244, 95");
       }
       if (event.type === "explosion") {
-        this.screenShake = Math.max(this.screenShake, 5);
+        this.screenShake = Math.max(this.screenShake, 10);
+        this.addScreenFlash(0.34, "255, 138, 61");
       }
     }
+  }
+
+  addScreenFlash(alpha, color) {
+    if (alpha >= this.screenFlash) {
+      this.screenFlashColor = color;
+    }
+    this.screenFlash = Math.max(this.screenFlash, alpha);
   }
 
   getNextPlayableLevelNumber() {
@@ -226,6 +247,8 @@ export class Renderer {
     this.level.resetToLevelNumber(this.currentLevelNumber);
     this.weapons.reset();
     this.combat.reset();
+    this.screenFlash = 0;
+    this.starWarp = 0;
     this.hideResult();
     this.wasGameActive = true;
   }
@@ -526,11 +549,36 @@ export class Renderer {
 
   drawStars(ctx) {
     for (const star of this.starLayers) {
+      if (this.starWarp > 0) {
+        const streakLength = (10 + star.speed * 0.18) * this.viewport.size.pixelRatio * this.starWarp;
+        ctx.save();
+        ctx.strokeStyle = `rgba(114, 216, 255, ${0.08 + star.alpha * 0.28 * this.starWarp})`;
+        ctx.lineWidth = Math.max(1, star.radius * this.viewport.size.pixelRatio * 0.7);
+        ctx.beginPath();
+        ctx.moveTo(star.x, star.y - streakLength);
+        ctx.lineTo(star.x, star.y + streakLength * 0.22);
+        ctx.stroke();
+        ctx.restore();
+      }
+
       ctx.beginPath();
       ctx.fillStyle = `rgba(247, 248, 251, ${star.alpha})`;
       ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
       ctx.fill();
     }
+  }
+
+  drawScreenFlash(ctx, width, height) {
+    if (this.screenFlash <= 0) {
+      return;
+    }
+
+    const alpha = Math.min(0.55, this.screenFlash);
+    ctx.save();
+    ctx.globalCompositeOperation = "screen";
+    ctx.fillStyle = `rgba(${this.screenFlashColor}, ${alpha})`;
+    ctx.fillRect(0, 0, width, height);
+    ctx.restore();
   }
 
   drawPointerReticle(ctx) {
