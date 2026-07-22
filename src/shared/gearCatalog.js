@@ -74,7 +74,7 @@ const BASE_GEAR = {
       speed: 420,
       turnRate: 5.8,
       radius: 6,
-      proximityRadius: 34,
+      proximityRadius: 56,
       blastRadius: 72,
     },
   },

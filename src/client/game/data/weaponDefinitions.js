@@ -32,7 +32,7 @@ export const DEFAULT_WEAPON_LOADOUT = {
     turnRate: 5.8,
     lifetime: 2.8,
     radius: 6,
-    proximityRadius: 34,
+    proximityRadius: 56,
     blastRadius: 72,
     color: "#ff8a3d",
   },
